@@ -55,11 +55,11 @@ void CCar::script_register(lua_State* L)
 		/*************************************************** added by Ray Twitty (aka Shadows) END ***************************************************/
 		
 #ifdef CAR_CHANGE
-		.enum_()
+		.enum_("car_engine")
 		[
-			value("eCarEngineStart", int(CCarWeapon::eCarEngineStart)),
-			value("eCarEngineStartFail", int(CCarWeapon::eCarEngineStartFail)),
-			value("eCarEngineDontStart", int(CCarWeapon::eCarEngineDontStart))
+			value("eCarEngineStart", int(CCar::eCarEngineStart)),
+			value("eCarEngineStartFail", int(CCar::eCarEngineStartFail)),
+			value("eCarEngineDontStart", int(CCar::eCarEngineDontStart))
 		]
 		
 #endif

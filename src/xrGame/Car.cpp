@@ -577,7 +577,7 @@ void CCar::Hit(SHit* pHDS)
 			CScriptHit tLuaHit(&HDS);
 			if (!lua_function(lua_game_object(), &tLuaHit, &HDS.boneID))
 			{
-				return false;
+				return;
 			}
 		}
 	}
@@ -897,17 +897,16 @@ void CCar::ParseDefinitions()
 
 	if (pSettings->line_exist(cNameSect_str(), "on_before_hit"))
 	{
-		m_on_before_hit_callback = READ_IF_EXISTS(pSettings, r_string, cNameSect_str(), "on_before_hit", "")
+		m_on_before_hit_callback = READ_IF_EXISTS(pSettings, r_string, cNameSect_str(), "on_before_hit", "");
 	}
 	if (pSettings->line_exist(cNameSect_str(), "on_before_use"))
 	{
-		m_on_before_use_callback = READ_IF_EXISTS(pSettings, r_string, cNameSect_str(), "on_before_use", "")
+		m_on_before_use_callback = READ_IF_EXISTS(pSettings, r_string, cNameSect_str(), "on_before_use", "");
 	}
 	if (pSettings->line_exist(cNameSect_str(), "on_before_start_engine"))
 	{
-		m_on_before_start_engine_callback = READ_IF_EXISTS(pSettings, r_string, cNameSect_str(), "on_before_start_engine", "")
+		m_on_before_start_engine_callback = READ_IF_EXISTS(pSettings, r_string, cNameSect_str(), "on_before_start_engine", "");
 	}
-
 
 #endif
 }
@@ -1108,6 +1107,41 @@ void CCar::Drive()
 void CCar::StartEngine()
 {
 	if (m_fuel < EPS || b_engine_on) return;
+
+#ifdef CAR_CHANGE
+	if (m_engine_switch_state_delay > Device.dwTimeGlobal)
+	{
+		return;
+	}
+
+	u16 flag = eCarEngineStart;
+	if (m_on_before_start_engine_callback && strlen(m_on_before_start_engine_callback))
+	{
+		luabind::functor<u16> lua_function;
+		if (ai().script_engine().functor(m_on_before_start_engine_callback, lua_function))
+		{
+			flag = lua_function(lua_game_object());
+		}
+	}
+
+	if (flag == eCarEngineStartFail)
+	{
+		m_engine_switch_state_delay = Device.dwTimeGlobal + 500;
+		m_engine_switch_state_delay += (u32)(m_car_sound->snd_engine_start.get_length_sec() * 1000);
+		m_car_sound->StartFail();
+		return;
+	}
+
+	if (flag == eCarEngineDontStart)
+	{
+		m_engine_switch_state_delay = Device.dwTimeGlobal + 500;
+		return;
+	}
+
+	m_engine_switch_state_delay = Device.dwTimeGlobal + 500;
+	m_engine_switch_state_delay += (u32)(m_car_sound->snd_engine_start.get_length_sec() * 1000);
+#endif
+
 	PlayExhausts();
 	m_car_sound->Start();
 	b_engine_on = true;

@@ -40,7 +40,9 @@ struct dSurfaceParameters;
 #endif
 
 #ifdef CAR_CHANGE
-
+#include "gameobject.h"
+#include "script_game_object.h"
+#include "script_hit.h"
 #endif
 
 class CScriptEntityAction;
@@ -388,6 +390,9 @@ public:
 			sndStalling,
 			sndStoping,
 			sndStarting,
+#ifdef CAR_CHANGE
+			sndStartFail,
+#endif
 			sndDrive
 		} eCarSound;
 
@@ -407,6 +412,10 @@ public:
 		void Stall();
 		void Drive();
 		void TransmissionSwitch();
+#ifdef CAR_CHANGE
+		void StartFail();
+		void UpdateStartFail();
+#endif
 
 		SCarSound(CCar* car);
 		~SCarSound();
@@ -722,6 +731,9 @@ private:
 	LPCSTR m_on_before_hit_callback;
 	LPCSTR m_on_before_use_callback;
 	LPCSTR m_on_before_start_engine_callback;
+
+	u32 m_engine_switch_state_delay;
+
 public:
 
 	enum
@@ -729,7 +741,7 @@ public:
 		eCarEngineStart = 0,
 		eCarEngineStartFail,
 		eCarEngineDontStart
-	}
+	};
 
 public:
 	virtual bool is_ai_obstacle() const;

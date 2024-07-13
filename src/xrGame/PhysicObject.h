@@ -8,6 +8,10 @@
 #include "animation_script_callback.h"
 #include "xrserver_objects_alife.h"
 
+#ifndef __GHENTUONG__
+#define __GHENTUONG__
+#endif
+
 class CSE_ALifeObjectPhysic;
 class CPhysicsElement;
 class moving_bones_snd_player;
@@ -137,6 +141,20 @@ protected:
 	Flags16 m_flags;
 	bool m_just_after_spawn;
 	bool m_activated;
+
+
+#ifdef __GHENTUONG__
+public:
+	enum ICFlags
+	{
+		ICmap = (1 << 0),
+		ICobj = (1 << 1),
+		ICnpc = (1 << 2),
+	};
+	u32 m_ignore_collision;
+private:
+	void CPhysicObject::set_ignore_collision();
+#endif
 
 DECLARE_SCRIPT_REGISTER_FUNCTION
 };

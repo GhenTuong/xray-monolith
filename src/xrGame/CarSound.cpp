@@ -133,6 +133,11 @@ void CCar::SCarSound::Update()
 		break;
 	case sndStoping: UpdateStalling();
 		break;
+#ifdef CAR_CHANGE
+	case sndStartFail:
+		UpdateStartFail();
+		break;
+#endif
 	}
 }
 
@@ -203,3 +208,23 @@ void CCar::SCarSound::TransmissionSwitch()
 		SetSoundPosition(snd_transmission);
 	}
 }
+
+#ifdef CAR_CHANGE
+void CCar::SCarSound::StartFail()
+{
+	VERIFY(!physics_world()->Processing());
+	if (eCarSound == sndOff)
+		SwitchOn();
+	SwitchState(sndStartFail);
+	snd_engine_start.play(pcar);
+	SetSoundPosition(snd_engine_start);
+}
+
+void CCar::SCarSound::UpdateStartFail()
+{
+	VERIFY(!physics_world()->Processing());
+	SetSoundPosition(snd_engine_start);
+	if (!snd_engine_start._feedback())
+		SwitchOff();
+}
+#endif
