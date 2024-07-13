@@ -53,6 +53,17 @@ void CCar::script_register(lua_State* L)
 		.def("GetRPM", &CCar::GetRPM)
 		.def("SetRPM", &CCar::SetRPM)
 		/*************************************************** added by Ray Twitty (aka Shadows) END ***************************************************/
+		
+#ifdef CAR_CHANGE
+		.enum_()
+		[
+			value("eCarEngineStart", int(CCarWeapon::eCarEngineStart)),
+			value("eCarEngineStartFail", int(CCarWeapon::eCarEngineStartFail)),
+			value("eCarEngineDontStart", int(CCarWeapon::eCarEngineDontStart))
+		]
+		
+#endif
+		
 		.def(constructor<>())
 	];
 }

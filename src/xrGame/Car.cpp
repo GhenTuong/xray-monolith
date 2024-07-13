@@ -36,6 +36,10 @@ BONE_P_MAP CCar::bone_map = BONE_P_MAP();
 
 //extern CPHWorld*	ph_world;
 
+#ifdef CAR_CHANGE
+
+#endif
+
 CCar::CCar()
 {
 	m_memory = NULL;
@@ -76,7 +80,7 @@ CCar::CCar()
 	m_exhaust_particles = "vehiclefx\\exhaust_1";
 	m_car_sound = xr_new<SCarSound>(this);
 
-	//у машины слотов в инвентаре нет
+	//пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ
 	inventory = xr_new<CInventory>();
 	inventory->SetSlotsUseful(false);
 	m_doors_torque_factor = 2.f;
@@ -96,6 +100,11 @@ CCar::CCar()
 #ifdef DEBUG
 	InitDebug();
 #endif
+
+#ifdef CAR_CHANGE
+	m_have_inventory = false;
+	m_inventory_bone.clear();
+#endif
 }
 
 CCar::~CCar(void)
@@ -109,6 +118,14 @@ CCar::~CCar(void)
 	xr_delete(m_car_weapon);
 	xr_delete(m_memory);
 	//	xr_delete			(l_tpEntityAction);
+
+#ifdef CAR_CHANGE
+	m_on_before_hit_callback = NULL;
+	m_on_before_use_callback = NULL;
+	m_on_before_start_engine_callback = NULL;
+
+	m_inventory_bone.clear();
+#endif
 }
 
 void CCar::reinit()
@@ -551,6 +568,21 @@ void CCar::Hit(SHit* pHDS)
 	if (HDS.hit_type != ALife::eHitTypeStrike) CDamageManager::HitScale(HDS.bone(), hitScale, woundScale);
 	HDS.power *= GetHitImmunity(HDS.hit_type) * hitScale;
 
+#ifdef CAR_CHANGE
+	if (m_on_before_hit_callback && strlen(m_on_before_hit_callback))
+	{
+		luabind::functor<bool> lua_function;
+		if (ai().script_engine().functor(m_on_before_hit_callback, lua_function))
+		{
+			CScriptHit tLuaHit(&HDS);
+			if (!lua_function(lua_game_object(), &tLuaHit, &HDS.boneID))
+			{
+				return false;
+			}
+		}
+	}
+#endif
+
 	inherited::Hit(&HDS);
 	if (!CDelayedActionFuse::isActive())
 	{
@@ -840,6 +872,44 @@ void CCar::ParseDefinitions()
 	}
 
 	m_damage_particles.Init(this);
+
+#ifdef CAR_CHANGE
+	IKinematics *K = Visual()->dcast_PKinematics();
+
+	if (ini->section_exist("inventory"))
+	{
+		m_have_inventory = !!READ_IF_EXISTS(ini, r_bool, "inventory", "enable", false);
+
+		m_inventory_bone.clear();
+		LPCSTR str = ini->r_string("inventory", "bone");
+		int n = _GetItemCount(str);
+		for (int i = 0; i < n; i++)
+		{
+			string64 tmp;
+			_GetItem(str, i, tmp);
+			u16 bone_id = K->LL_BoneID(tmp);
+			if (bone_id != BI_NONE)
+			{
+				m_inventory_bone.push_back(bone_id);
+			}
+		}
+	}
+
+	if (pSettings->line_exist(cNameSect_str(), "on_before_hit"))
+	{
+		m_on_before_hit_callback = READ_IF_EXISTS(pSettings, r_string, cNameSect_str(), "on_before_hit", "")
+	}
+	if (pSettings->line_exist(cNameSect_str(), "on_before_use"))
+	{
+		m_on_before_use_callback = READ_IF_EXISTS(pSettings, r_string, cNameSect_str(), "on_before_use", "")
+	}
+	if (pSettings->line_exist(cNameSect_str(), "on_before_start_engine"))
+	{
+		m_on_before_start_engine_callback = READ_IF_EXISTS(pSettings, r_string, cNameSect_str(), "on_before_start_engine", "")
+	}
+
+
+#endif
 }
 
 void CCar::CreateSkeleton(CSE_Abstract* po)
@@ -1477,6 +1547,20 @@ void CCar::ClearExhausts()
 
 bool CCar::Use(const Fvector& pos, const Fvector& dir, const Fvector& foot_pos)
 {
+#ifdef CAR_CHANGE
+	if (m_on_before_use_callback && strlen(m_on_before_use_callback))
+	{
+		luabind::functor<bool> lua_function;
+		if (ai().script_engine().functor(m_on_before_use_callback, lua_function))
+		{
+			if (!lua_function(lua_game_object(), pos, dir, foot_pos))
+			{
+				return false;
+			}
+		}
+	}
+#endif
+
 	xr_map<u16, SDoor>::iterator i;
 
 	if (!Owner())
@@ -1701,7 +1785,7 @@ void CCar::OnEvent(NET_Packet& P, u16 type)
 	inherited::OnEvent(P, type);
 	CExplosive::OnEvent(P, type);
 
-	//обработка сообщений, нужных для работы с багажником машины
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	u16 id;
 	switch (type)
 	{
@@ -2063,7 +2147,7 @@ Fvector CCar::ExitVelocity()
 
 /************************************************** added by Ray Twitty (aka Shadows) START **************************************************/
 #ifdef ENABLE_CAR
-// получить и задать текущее количество топлива
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 float CCar::GetfFuel()
 {
 	return m_fuel;
@@ -2074,7 +2158,7 @@ void CCar::SetfFuel(float fuel)
 	m_fuel = fuel;
 }
 
-// получить и задать размер топливного бака 
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ 
 float CCar::GetfFuelTank()
 {
 	return m_fuel_tank;
@@ -2085,7 +2169,7 @@ void CCar::SetfFuelTank(float fuel_tank)
 	m_fuel_tank = fuel_tank;
 }
 
-// получить и задать величину потребление топлива
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 float CCar::GetfFuelConsumption()
 {
 	return m_fuel_consumption;
@@ -2096,7 +2180,7 @@ void CCar::SetfFuelConsumption(float fuel_consumption)
 	m_fuel_consumption = fuel_consumption;
 }
 
-// прибавить или убавить количество топлива
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 void CCar::ChangefFuel(float fuel)
 {
 	if (m_fuel + fuel < 0)
@@ -2115,7 +2199,7 @@ void CCar::ChangefFuel(float fuel)
 	}
 }
 
-// прибавить или убавить жизней :)
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ :)
 void CCar::ChangefHealth(float health)
 {
 	float current_health = GetfHealth();
@@ -2135,7 +2219,7 @@ void CCar::ChangefHealth(float health)
 	}
 }
 
-// активен ли сейчас двигатель
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 bool CCar::isActiveEngine()
 {
 	return b_engine_on;
@@ -2148,3 +2232,28 @@ Fvector CCar::ExitPosition()
 	else m_exit_position.set(Position());
 	return m_exit_position;
 }
+
+#ifdef CAR_CHANGE
+bool CCar::is_ai_obstacle() const
+{
+	return true;
+}
+
+
+
+/*----------------------------------------------------------------------------------------------------
+	Inventory
+----------------------------------------------------------------------------------------------------*/
+bool CCar::IsBoneInventory(u16 bone_id)
+{
+	for (int i = 0; i < m_inventory_bone.size(); i++)
+	{
+		if (m_inventory_bone.at(i) == bone_id)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+#endif

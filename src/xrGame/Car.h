@@ -35,6 +35,14 @@ struct dSurfaceParameters;
 	#include "PHDebug.h"
 #endif
 
+#ifndef CAR_CHANGE
+#define CAR_CHANGE
+#endif
+
+#ifdef CAR_CHANGE
+
+#endif
+
 class CScriptEntityAction;
 class car_memory;
 
@@ -708,6 +716,36 @@ private:
 
 private:
 	car_memory* m_memory;
+
+#ifdef CAR_CHANGE
+private:
+	LPCSTR m_on_before_hit_callback;
+	LPCSTR m_on_before_use_callback;
+	LPCSTR m_on_before_start_engine_callback;
+public:
+
+	enum
+	{
+		eCarEngineStart = 0,
+		eCarEngineStartFail,
+		eCarEngineDontStart
+	}
+
+public:
+	virtual bool is_ai_obstacle() const;
+
+/*----------------------------------------------------------------------------------------------------
+	Inventory
+----------------------------------------------------------------------------------------------------*/
+private:
+	bool m_have_inventory;
+	xr_vector<u16> m_inventory_bone;
+
+public:
+	bool IsBoneInventory(u16 bone_id);
+
+
+#endif
 
 public:
 DECLARE_SCRIPT_REGISTER_FUNCTION
