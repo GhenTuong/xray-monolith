@@ -735,7 +735,6 @@ private:
 	u32 m_engine_switch_state_delay;
 
 public:
-
 	enum
 	{
 		eCarEngineStart = 0,
@@ -750,12 +749,13 @@ public:
 	Inventory
 ----------------------------------------------------------------------------------------------------*/
 private:
-	bool m_have_inventory;
+	bool m_inventory_flag;
 	xr_vector<u16> m_inventory_bone;
 
 public:
 	bool IsBoneInventory(u16 bone_id);
-
+	bool HasInventory();
+	void UseInventory();
 
 #endif
 

@@ -102,7 +102,7 @@ CCar::CCar()
 #endif
 
 #ifdef CAR_CHANGE
-	m_have_inventory = false;
+	m_inventory_flag = false;
 	m_inventory_bone.clear();
 #endif
 }
@@ -510,6 +510,10 @@ void CCar::VisualUpdate(float fov)
 
 	UpdateExhausts();
 	m_lights.Update();
+
+#ifdef CAR_CHANGE
+	GetInventory()->Update();
+#endif
 }
 
 void CCar::renderable_Render()
@@ -876,9 +880,22 @@ void CCar::ParseDefinitions()
 #ifdef CAR_CHANGE
 	IKinematics *K = Visual()->dcast_PKinematics();
 
+	if (pSettings->line_exist(cNameSect_str(), "on_before_hit"))
+	{
+		m_on_before_hit_callback = READ_IF_EXISTS(pSettings, r_string, cNameSect_str(), "on_before_hit", "");
+	}
+	if (pSettings->line_exist(cNameSect_str(), "on_before_use"))
+	{
+		m_on_before_use_callback = READ_IF_EXISTS(pSettings, r_string, cNameSect_str(), "on_before_use", "");
+	}
+	if (pSettings->line_exist(cNameSect_str(), "on_before_start_engine"))
+	{
+		m_on_before_start_engine_callback = READ_IF_EXISTS(pSettings, r_string, cNameSect_str(), "on_before_start_engine", "");
+	}
+
 	if (ini->section_exist("inventory"))
 	{
-		m_have_inventory = !!READ_IF_EXISTS(ini, r_bool, "inventory", "enable", false);
+		m_inventory_flag = !!READ_IF_EXISTS(ini, r_bool, "inventory", "enable", false);
 
 		m_inventory_bone.clear();
 		LPCSTR str = ini->r_string("inventory", "bone");
@@ -894,20 +911,6 @@ void CCar::ParseDefinitions()
 			}
 		}
 	}
-
-	if (pSettings->line_exist(cNameSect_str(), "on_before_hit"))
-	{
-		m_on_before_hit_callback = READ_IF_EXISTS(pSettings, r_string, cNameSect_str(), "on_before_hit", "");
-	}
-	if (pSettings->line_exist(cNameSect_str(), "on_before_use"))
-	{
-		m_on_before_use_callback = READ_IF_EXISTS(pSettings, r_string, cNameSect_str(), "on_before_use", "");
-	}
-	if (pSettings->line_exist(cNameSect_str(), "on_before_start_engine"))
-	{
-		m_on_before_start_engine_callback = READ_IF_EXISTS(pSettings, r_string, cNameSect_str(), "on_before_start_engine", "");
-	}
-
 #endif
 }
 
@@ -1592,6 +1595,21 @@ bool CCar::Use(const Fvector& pos, const Fvector& dir, const Fvector& foot_pos)
 				return false;
 			}
 		}
+	}
+
+	if (HasInventory())
+	{
+		collide::rq_result &RQ = HUD().GetCurrentRayQuery();
+		if (RQ.O && (RQ.O->ID() == ID()) && IsBoneInventory(RQ.element))
+		{
+			UseInventory();
+			return false;
+		}
+	}
+
+	if (m_doors.size() == 0)
+	{
+		return true;
 	}
 #endif
 
@@ -2288,6 +2306,22 @@ bool CCar::IsBoneInventory(u16 bone_id)
 		}
 	}
 	return false;
+}
+
+bool CCar::HasInventory()
+{
+	return m_inventory_flag;
+}
+
+void CCar::UseInventory()
+{
+	if (HasInventory())
+	{
+		CUIGameSP *GSP = smart_cast<CUIGameSP *>(CurrentGameUI());
+		if (!GSP)
+			return;
+		GSP->StartCarBody(Actor()->cast_inventory_owner(), this);
+	}
 }
 
 #endif

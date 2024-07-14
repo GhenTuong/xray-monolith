@@ -259,6 +259,23 @@ void CUIGameSP::StartCarBody(CInventoryOwner* pActorInv, CInventoryBox* pBox) //
 	ActorMenu->ShowDialog(true);
 }
 
+#ifdef CAR_CHANGE
+void CUIGameSP::StartCarBody(CInventoryOwner *pActorInv, CCar *pCar);
+{
+	if (TopInputReceiver())
+		return;
+	luabind::functor<bool> funct1;
+	if (ai().script_engine().functor("actor_menu_inventory.CUIActorMenu_OnMode_DeadBodySearch", funct1))
+	{
+		if (funct1(pCar->cast_game_object()->lua_game_object()))
+			return;
+	}
+	/*
+		Only support actor_menu_inventory.CUIActorMenu_OnMode_DeadBodySearch for STALKER Anomaly.
+		Implement ActorMenu yourself if needed.
+	*/
+}
+#endif
 
 extern ENGINE_API BOOL bShowPauseString;
 
