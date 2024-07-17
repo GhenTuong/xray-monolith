@@ -260,7 +260,7 @@ void CUIGameSP::StartCarBody(CInventoryOwner* pActorInv, CInventoryBox* pBox) //
 }
 
 #ifdef CAR_CHANGE
-void CUIGameSP::StartCarBody(CInventoryOwner *pActorInv, CCar *pCar);
+void CUIGameSP::StartCarBody(CInventoryOwner *pActorInv, CCar *pCar)
 {
 	if (TopInputReceiver())
 		return;

@@ -37,7 +37,8 @@ BONE_P_MAP CCar::bone_map = BONE_P_MAP();
 //extern CPHWorld*	ph_world;
 
 #ifdef CAR_CHANGE
-
+#include "UIGameSP.h"
+#include "UIGameCustom.h"
 #endif
 
 CCar::CCar()
@@ -2318,9 +2319,10 @@ void CCar::UseInventory()
 	if (HasInventory())
 	{
 		CUIGameSP *GSP = smart_cast<CUIGameSP *>(CurrentGameUI());
-		if (!GSP)
-			return;
-		GSP->StartCarBody(Actor()->cast_inventory_owner(), this);
+		if (GSP)
+		{
+			GSP->StartCarBody(Actor()->cast_inventory_owner(), this);
+		}
 	}
 }
 

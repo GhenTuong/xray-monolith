@@ -43,6 +43,7 @@ struct dSurfaceParameters;
 #include "gameobject.h"
 #include "script_game_object.h"
 #include "script_hit.h"
+#include "HUDManager.h"
 #endif
 
 class CScriptEntityAction;
@@ -745,9 +746,9 @@ public:
 public:
 	virtual bool is_ai_obstacle() const;
 
-/*----------------------------------------------------------------------------------------------------
-	Inventory
-----------------------------------------------------------------------------------------------------*/
+	/*----------------------------------------------------------------------------------------------------
+		Inventory
+	----------------------------------------------------------------------------------------------------*/
 private:
 	bool m_inventory_flag;
 	xr_vector<u16> m_inventory_bone;
