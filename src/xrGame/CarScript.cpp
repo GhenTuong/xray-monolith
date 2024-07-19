@@ -61,7 +61,20 @@ void CCar::script_register(lua_State* L)
 			value("eCarEngineStartFail", int(CCar::eCarEngineStartFail)),
 			value("eCarEngineDontStart", int(CCar::eCarEngineDontStart))
 		]
-		
+		.def("SetfMaxPower", &CCar::SetfMaxPower)
+		.def("GetfMaxPower", &CCar::GetfMaxPower)
+		.def("GetfMaxPowerDef", &CCar::GetfMaxPowerDef)
+		.def("GetfFuelTankDef", &CCar::GetfFuelTankDef)
+		.def("GetfFuelTankDef", &CCar::GetfFuelTankDef)
+		.def("GetfFuelConsumptionDef", &CCar::GetfFuelConsumptionDef)
+
+		.def("StartEngineForce", &CCar::StartEngineForce)
+
+		.def("HasInventory", &CCar::HasInventory)
+		.def("UseInventory", &CCar::UseInventory)
+		.def("SetMaxCarryWeight", &CCar::SetMaxCarryWeight)
+		.def("GetMaxCarryWeight", &CCar::GetMaxCarryWeight)
+		.def("GetMaxCarryWeightDef", &CCar::GetMaxCarryWeightDef)
 #endif
 		
 		.def(constructor<>())

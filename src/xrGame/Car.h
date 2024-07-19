@@ -760,6 +760,8 @@ public:
 	float GetfFuelTankDef();
 	float GetfFuelConsumptionDef();
 
+	void StartEngineForce();
+
 	/*----------------------------------------------------------------------------------------------------
 		Inventory
 	----------------------------------------------------------------------------------------------------*/
@@ -768,6 +770,7 @@ private:
 	xr_vector<u16> m_inventory_bone;
 
 	float m_max_carry_weight_def;
+
 public:
 	bool IsBoneInventory(u16 bone_id);
 	bool HasInventory();

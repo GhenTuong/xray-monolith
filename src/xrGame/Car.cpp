@@ -1850,6 +1850,59 @@ void CCar::OnEvent(NET_Packet& P, u16 type)
 	inherited::OnEvent(P, type);
 	CExplosive::OnEvent(P, type);
 
+#ifdef CAR_CHANGE
+	switch (type)
+	{
+	case GE_TRADE_BUY:
+	case GE_OWNERSHIP_TAKE:
+	{
+		u16 id;
+		P.r_u16(id);
+		CObject *O = Level().Objects.net_Find(id);
+		O->H_SetParent(this);
+		if (GetInventory()->CanTakeItem(smart_cast<CInventoryItem *>(O)))
+		{
+			O->setVisible(FALSE);
+			O->setEnabled(FALSE);
+			GetInventory()->Take(smart_cast<CGameObject *>(O), false, false);
+		}
+		else
+		{
+			if (!O || !O->H_Parent() || (this != O->H_Parent()))
+			{
+				return;
+			}
+			{
+				NET_Packet N;
+				CGameObject::u_EventGen(N, GE_TRADE_SELL, ID());
+				N.w_u16(id);
+				CGameObject::u_EventSend(N);
+			}
+			{
+				NET_Packet N;
+				CGameObject::u_EventGen(N, GE_TRADE_BUY, Actor()->ID());
+				N.w_u16(id);
+				CGameObject::u_EventSend(N);
+			}
+		}
+		break;
+	}
+	case GE_TRADE_SELL:
+	case GE_OWNERSHIP_REJECT:
+	{
+		u16 id;
+		P.r_u16(id);
+		CObject *O = Level().Objects.net_Find(id);
+
+		bool just_before_destroy = !P.r_eof() && P.r_u8();
+		O->SetTmpPreDestroy(just_before_destroy);
+		GetInventory()->DropItem(smart_cast<CGameObject *>(O), just_before_destroy, true);
+		O->H_SetParent(NULL, true);
+		Actor()->callback(GameObject::eInvBoxItemTake)(this->lua_game_object(), smart_cast<CGameObject *>(O)->lua_game_object());
+		break;
+	}
+	}
+#else
 	//��������� ���������, ������ ��� ������ � ���������� ������
 	u16 id;
 	switch (type)
@@ -1889,6 +1942,7 @@ void CCar::OnEvent(NET_Packet& P, u16 type)
 		}
 		break;
 	}
+#endif
 }
 
 void CCar::ResetScriptData(void* P)
@@ -2328,6 +2382,17 @@ float CCar::GetfFuelTankDef()
 float CCar::GetfFuelConsumptionDef()
 {
 	return m_fuel_consumption_def;
+}
+
+void CCar::StartEngineForce()
+{
+	if (m_fuel < EPS || b_engine_on)
+		return;
+	PlayExhausts();
+	m_car_sound->Start();
+	b_engine_on = true;
+	m_current_rpm = 0.f;
+	b_starting = true;
 }
 
 /*----------------------------------------------------------------------------------------------------
