@@ -716,6 +716,10 @@ private:
 
 	virtual void reinit();
 	virtual void reload(LPCSTR section);
+
+#ifdef CAR_CHANGE
+public:
+#endif
 	virtual CGameObject* cast_game_object() { return this; }
 	virtual CExplosive* cast_explosive() { return this; }
 	virtual CPhysicsShellHolder* cast_physics_shell_holder() { return this; }
@@ -735,6 +739,10 @@ private:
 
 	u32 m_engine_switch_state_delay;
 
+	float m_max_power_def;
+	float m_fuel_tank_def;
+	float m_fuel_consumption_def;
+
 public:
 	enum
 	{
@@ -746,6 +754,12 @@ public:
 public:
 	virtual bool is_ai_obstacle() const;
 
+	void SetfMaxPower(float value);
+	float GetfMaxPower();
+	float GetfMaxPowerDef();
+	float GetfFuelTankDef();
+	float GetfFuelConsumptionDef();
+
 	/*----------------------------------------------------------------------------------------------------
 		Inventory
 	----------------------------------------------------------------------------------------------------*/
@@ -753,11 +767,15 @@ private:
 	bool m_inventory_flag;
 	xr_vector<u16> m_inventory_bone;
 
+	float m_max_carry_weight_def;
 public:
 	bool IsBoneInventory(u16 bone_id);
 	bool HasInventory();
 	void UseInventory();
 
+	void SetMaxCarryWeight(float value);
+	float GetMaxCarryWeight();
+	float GetMaxCarryWeightDef();
 #endif
 
 public:

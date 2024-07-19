@@ -103,8 +103,13 @@ CCar::CCar()
 #endif
 
 #ifdef CAR_CHANGE
+	m_max_power_def = 0.0f;
+	m_fuel_tank_def = 0.0f;
+	m_fuel_consumption_def = 0.0f;
+
 	m_inventory_flag = false;
 	m_inventory_bone.clear();
+	m_max_carry_weight_def = 0.0f;
 #endif
 }
 
@@ -879,6 +884,10 @@ void CCar::ParseDefinitions()
 	m_damage_particles.Init(this);
 
 #ifdef CAR_CHANGE
+	m_max_power_def = m_max_power;
+	m_fuel_tank_def = m_fuel_tank;
+	m_fuel_consumption_def = m_fuel_consumption;
+
 	IKinematics *K = Visual()->dcast_PKinematics();
 
 	if (pSettings->line_exist(cNameSect_str(), "on_before_hit"))
@@ -911,6 +920,9 @@ void CCar::ParseDefinitions()
 				m_inventory_bone.push_back(bone_id);
 			}
 		}
+
+		GetInventory()->SetMaxWeight(READ_IF_EXISTS(pSettings, r_float, cNameSect_str(), "max_weight", 0.0f));
+		m_max_carry_weight_def = GetInventory()->GetMaxWeight();
 	}
 #endif
 }
@@ -2292,7 +2304,31 @@ bool CCar::is_ai_obstacle() const
 	return true;
 }
 
+void CCar::SetfMaxPower(float value)
+{
+	m_max_power = value;
+	InitParabola();
+}
 
+float CCar::GetfMaxPower()
+{
+	return m_max_power;
+}
+
+float CCar::GetfMaxPowerDef()
+{
+	return m_max_power_def;
+}
+
+float CCar::GetfFuelTankDef()
+{
+	return m_fuel_tank_def;
+}
+
+float CCar::GetfFuelConsumptionDef()
+{
+	return m_fuel_consumption_def;
+}
 
 /*----------------------------------------------------------------------------------------------------
 	Inventory
@@ -2326,4 +2362,18 @@ void CCar::UseInventory()
 	}
 }
 
+void CCar::SetMaxCarryWeight(float value)
+{
+	GetInventory()->SetMaxWeight(value);
+}
+
+float CCar::GetMaxCarryWeight()
+{
+	return GetInventory()->GetMaxWeight();
+}
+
+float CCar::GetMaxCarryWeightDef()
+{
+	return m_max_carry_weight_def;
+}
 #endif
