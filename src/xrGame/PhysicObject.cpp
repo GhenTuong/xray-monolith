@@ -83,27 +83,6 @@ BOOL CPhysicObject::net_Spawn(CSE_Abstract* DC)
 	}
 	//processing_activate();
 
-#ifdef __GHENTUONG__
-	m_ignore_collision = 0;
-	if (pSettings->line_exist(cNameSect(), "ignore_collision"))
-	{
-		LPCSTR tmp = pSettings->r_string(cNameSect(), "ignore_collision");
-		if (strstr(tmp, "map"))
-		{
-			m_ignore_collision = m_ignore_collision | ICmap;
-		}
-		if (strstr(tmp, "obj"))
-		{
-			m_ignore_collision = m_ignore_collision | ICobj;
-		}
-		if (strstr(tmp, "npc"))
-		{
-			m_ignore_collision = m_ignore_collision | ICnpc;
-		}
-	}
-	set_ignore_collision();
-#endif
-
 #ifdef	DEBUG
 if(dbg_draw_doors)
 {
@@ -113,6 +92,14 @@ if(dbg_draw_doors)
 	DBG_ClosedCashedDraw( 50000000 );
 }
 #endif
+
+#if 1
+	if (PPhysicsShell() && m_ignore_collision)
+	{
+		CPhysicsShellHolder::set_ignore_collision();
+	}
+#endif
+
 	return TRUE;
 }
 
@@ -218,60 +205,6 @@ void CPhysicObject::unset_door_ignore_dynamics()
 	R_ASSERT(PPhysicsShell());
 	PPhysicsShell()->remove_ObjectContactCallback(door_ignore);
 }
-
-#ifdef __GHENTUONG__
-static void IgnoreCollisionCallback(bool &do_colide, bool bo1, dContact &c, SGameMtl *material_1, SGameMtl *material_2)
-{
-	dxGeomUserData *gd1 = bo1 ? PHRetrieveGeomUserData(c.geom.g1) : PHRetrieveGeomUserData(c.geom.g2);
-	dxGeomUserData *gd2 = bo1 ? PHRetrieveGeomUserData(c.geom.g2) : PHRetrieveGeomUserData(c.geom.g1);
-
-	CGameObject *obj = (gd1) ? smart_cast<CGameObject *>(gd1->ph_ref_object) : NULL;
-	CGameObject *who = (gd2) ? smart_cast<CGameObject *>(gd2->ph_ref_object) : NULL;
-
-	if (obj == NULL)
-	{
-		return;
-	}
-
-	CPhysicObject *a = (obj) ? smart_cast<CPhysicObject *>(obj) : NULL;
-	if (a == NULL)
-	{
-		return;
-	}
-
-	if ((a->m_ignore_collision & a->ICmap) && (who == NULL))
-	{
-		do_colide = false;
-		return;
-	}
-
-	CPhysicObject *b = (who) ? smart_cast<CPhysicObject *>(who) : NULL;
-	if (b)
-	{
-		if ((a->m_ignore_collision & a->ICobj) && (b->m_ignore_collision & b->ICobj))
-		{
-			do_colide = false;
-			return;
-		}
-	}
-
-	if (who->cast_custom_monster())
-	{
-		if (a->m_ignore_collision & a->ICnpc)
-		{
-			do_colide = false;
-			return;
-		}
-	}
-}
-
-void CPhysicObject::set_ignore_collision()
-{
-	R_ASSERT(PPhysicsShell());
-	PPhysicsShell()->remove_ObjectContactCallback(IgnoreCollisionCallback);
-	PPhysicsShell()->add_ObjectContactCallback(IgnoreCollisionCallback);
-}
-#endif
 
 void CPhysicObject::SpawnInitPhysics(CSE_Abstract* D)
 {

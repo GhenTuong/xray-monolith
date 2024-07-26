@@ -75,7 +75,7 @@ void CPhysicsShellHolder::net_Destroy()
 	//remove calls
 	CPHSriptReqGObjComparer cmpr(this);
 	Level().ph_commander_scripts().remove_calls(&cmpr);
-	//удалить партиклы из ParticlePlayer
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ ParticlePlayer
 	CParticlesPlayer::net_DestroyParticles();
 	CCharacterPhysicsSupport* char_support = character_physics_support();
 	if (char_support)
@@ -121,6 +121,27 @@ BOOL CPhysicsShellHolder::net_Spawn(CSE_Abstract* DC)
 
 		st_enable_state = (u8)stNotDefitnite;
 	}
+
+#if 1
+	m_ignore_collision = 0;
+	if (pSettings->line_exist(cNameSect(), "ignore_collision"))
+	{
+		LPCSTR tmp = pSettings->r_string(cNameSect(), "ignore_collision");
+		if (strstr(tmp, "map"))
+		{
+			m_ignore_collision = m_ignore_collision | ICmap;
+		}
+		if (strstr(tmp, "obj"))
+		{
+			m_ignore_collision = m_ignore_collision | ICobj;
+		}
+		if (strstr(tmp, "npc"))
+		{
+			m_ignore_collision = m_ignore_collision | ICnpc;
+		}
+	}
+#endif
+
 	return ret;
 }
 
@@ -155,6 +176,10 @@ void CPhysicsShellHolder::init()
 {
 	m_pPhysicsShell = NULL;
 	b_sheduled = false;
+
+#if 1
+	m_ignore_collision = 0;
+#endif
 }
 
 bool CPhysicsShellHolder::has_shell_collision_place(const CPhysicsShellHolder* obj) const
@@ -363,7 +388,7 @@ void CPhysicsShellHolder::OnChangeVisual()
 void CPhysicsShellHolder::UpdateCL()
 {
 	inherited::UpdateCL();
-	//обновить присоединенные партиклы
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	UpdateParticles();
 }
 
@@ -643,5 +668,67 @@ std::string	CPhysicsShellHolder::dump(EDumpType type) const
 	default: NODEFAULT;			return std::string("fail!");
 	}
 
+}
+#endif
+
+#if 1
+void CPhysicsShellHolder::IgnoreCollisionCallback(bool &do_colide, bool bo1, dContact &c, SGameMtl *material_1, SGameMtl *material_2)
+{
+	dxGeomUserData *gd1 = bo1 ? PHRetrieveGeomUserData(c.geom.g1) : PHRetrieveGeomUserData(c.geom.g2);
+	dxGeomUserData *gd2 = bo1 ? PHRetrieveGeomUserData(c.geom.g2) : PHRetrieveGeomUserData(c.geom.g1);
+
+	CGameObject *obj = (gd1) ? smart_cast<CGameObject *>(gd1->ph_ref_object) : NULL;
+	CGameObject *who = (gd2) ? smart_cast<CGameObject *>(gd2->ph_ref_object) : NULL;
+
+	if (obj == NULL)
+	{
+		return;
+	}
+
+	CPhysicsShellHolder *a = (obj) ? smart_cast<CPhysicsShellHolder *>(obj) : NULL;
+	if (a == NULL)
+	{
+		return;
+	}
+
+	if (who == NULL)
+	{
+		if (a->m_ignore_collision & a->ICmap)
+		{
+			do_colide = false;
+		}
+		return;
+	}
+
+	CPhysicsShellHolder *b = smart_cast<CPhysicsShellHolder *>(who);
+	if (b)
+	{
+		if (b->cast_actor() || b->cast_custom_monster())
+		{
+			if (a->m_ignore_collision & a->ICnpc)
+			{
+				do_colide = false;
+				return;
+			}
+		}
+		else
+		{
+			if (a->m_ignore_collision & a->ICobj)
+			{
+				if (b->m_ignore_collision & b->ICobj)
+				{
+					do_colide = false;
+					return;
+				}
+			}
+		}
+	}
+}
+
+void CPhysicsShellHolder::set_ignore_collision()
+{
+	R_ASSERT(PPhysicsShell());
+	PPhysicsShell()->remove_ObjectContactCallback(IgnoreCollisionCallback);
+	PPhysicsShell()->add_ObjectContactCallback(IgnoreCollisionCallback);
 }
 #endif
