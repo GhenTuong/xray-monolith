@@ -1,5 +1,9 @@
 #pragma once
 
+#ifndef CROCKETLAUNCHER_CHANGE
+#define CROCKETLAUNCHER_CHANGE
+#endif
+
 class CCustomRocket;
 class CGameObject;
 
