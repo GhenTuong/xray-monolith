@@ -49,6 +49,17 @@ void CSE_ALifeCar::script_register(lua_State* L)
 	];
 }
 
+void CSE_ALifeStationaryMgun::script_register(lua_State* L)
+{
+	module(L)[
+		luabind_class_dynamic_alife1(
+			CSE_ALifeStationaryMgun,
+			"cse_alife_stmgun",
+			CSE_ALifeDynamicObjectVisual
+		)
+	];
+}
+
 void CSE_ALifeObjectBreakable::script_register(lua_State* L)
 {
 	module(L)[

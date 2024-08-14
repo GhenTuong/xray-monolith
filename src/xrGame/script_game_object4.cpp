@@ -520,6 +520,7 @@ B* A ()\
 SPECIFIC_CAST(CScriptGameObject::cast_Actor, CActor);
 SPECIFIC_CAST(CScriptGameObject::cast_Car, CCar);
 SPECIFIC_CAST(CScriptGameObject::cast_Heli, CHelicopter);
+SPECIFIC_CAST(CScriptGameObject::cast_WeaponStatMgun, CWeaponStatMgun);
 SPECIFIC_CAST(CScriptGameObject::cast_InventoryOwner, CInventoryOwner);
 SPECIFIC_CAST(CScriptGameObject::cast_InventoryBox, CInventoryBox);
 SPECIFIC_CAST(CScriptGameObject::cast_CustomZone, CCustomZone);

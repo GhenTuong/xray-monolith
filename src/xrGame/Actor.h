@@ -207,13 +207,13 @@ public:
 
 public:
 
-	//свойства артефактов
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	virtual void UpdateArtefactsOnBeltAndOutfit();
 	float HitArtefactsOnBelt(float hit_power, ALife::EHitType hit_type);
 	float GetProtection_ArtefactsOnBelt(ALife::EHitType hit_type);
 
 protected:
-	//звук тяжелого дыхания
+	//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	ref_sound m_HeavyBreathSnd;
 	ref_sound m_BloodSnd;
 	ref_sound m_DangerSnd;
@@ -239,13 +239,13 @@ protected:
 	BOOL b_DropActivated;
 	float f_DropPower;
 
-	//random seed для Zoom mode
+	//random seed пїЅпїЅпїЅ Zoom mode
 	s32 m_ZoomRndSeed;
-	//random seed для Weapon Effector Shot
+	//random seed пїЅпїЅпїЅ Weapon Effector Shot
 	s32 m_ShotRndSeed;
 
 	bool m_bOutBorder;
-	//сохраняет счетчик объектов в feel_touch, для которых необходимо обновлять размер колижена с актером 
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ feel_touch, пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ 
 	u32 m_feel_touch_characters;
 private:
 	void SwitchOutBorder(bool new_border_state);
@@ -258,9 +258,15 @@ public:
 	s32 GetShotRndSeed() { return m_ShotRndSeed; };
 
 public:
+#ifdef CHOLDERCUSTOM_CHANGE
+	void detach_Vehicle(bool bForce);
+	void steer_Vehicle(float angle);
+	bool attach_Vehicle(CHolderCustom *object, bool bForce);
+#else
 	void detach_Vehicle();
 	void steer_Vehicle(float angle);
 	void attach_Vehicle(CHolderCustom* vehicle);
+#endif
 	bool use_HolderEx(CHolderCustom* object, bool bForce);
 
 	virtual bool can_attach(const CInventoryItem* inventory_item) const;
@@ -277,10 +283,10 @@ protected:
 	// Rotation
 	SRotation r_torso;
 	float r_torso_tgt_roll;
-	//положение торса без воздействия эффекта отдачи оружия
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	SRotation unaffected_r_torso;
 
-	//ориентация модели
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	float r_model_yaw_dest;
 	float r_model_yaw; // orientation of model
 	float r_model_yaw_delta; // effect on multiple "strafe"+"something"
@@ -299,7 +305,7 @@ public:
 	MotionID m_current_torso;
 	MotionID m_current_head;
 
-	// callback на анимации модели актера
+	// callback пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	void SetCallbacks();
 	void ResetCallbacks();
 	static void _BCL Spin0Callback(CBoneInstance*);
@@ -364,7 +370,7 @@ protected:
 	CEffectorBobbing* pCamBobbing;
 
 
-	//менеджер эффекторов, есть у каждого актрера
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	CActorCameraManager* m_pActorEffector;
 	static float f_Ladder_cam_limit;
 public: //--#SM+#--
@@ -417,7 +423,7 @@ public:
 	bool m_bDelayDrawPickupItems;
 
 	//////////////////////////////////////////////////////////////////////////
-	// Motions (передвижения актрера)
+	// Motions (пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
 	//////////////////////////////////////////////////////////////////////////
 public:
 	void g_cl_CheckControls(u32 mstate_wf, Fvector& vControlAccel, float& Jump, float dt);
@@ -498,30 +504,30 @@ public:
 
 protected:
 	CFireDispertionController m_fdisp_controller;
-	//если актер целится в прицел
+	//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	void SetZoomAimingMode(bool val) { m_bZoomAimingMode = val; }
 	bool m_bZoomAimingMode;
 
-	//настройки аккуратности стрельбы
-	//базовая дисперсия (когда игрок стоит на месте)
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ)
 	float m_fDispBase;
 	float m_fDispAim;
-	//коэффициенты на сколько процентов увеличится базовая дисперсия
-	//учитывает скорость актера 
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ 
 	float m_fDispVelFactor;
-	//если актер бежит
+	//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	float m_fDispAccelFactor;
-	//если актер сидит
+	//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 	float m_fDispCrouchFactor;
 	//crouch+no acceleration
 	float m_fDispCrouchNoAccelFactor;
 	Fvector m_vMissileOffset;
 public:
-	// Получение, и запись смещения для гранат
+	// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	Fvector GetMissileOffset() const;
 	void SetMissileOffset(const Fvector& vNewOffset);
 protected:
-	//косточки используемые при стрельбе
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	int m_r_hand;
 	int m_l_finger1;
 	int m_r_finger2;
@@ -572,15 +578,15 @@ protected:
 	////////////////////////////////////////////////////////////////////////////
 	virtual bool can_validate_position_on_spawn() { return false; }
 	///////////////////////////////////////////////////////
-	// апдайт с данными физики
+	// пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	xr_deque<net_update_A> NET_A;
 
 	//---------------------------------------------
 	//	bool					m_bHasUpdate;	
 	/// spline coeff /////////////////////
-	float SCoeff[3][4]; //коэффициэнты для сплайна Бизье
-	float HCoeff[3][4]; //коэффициэнты для сплайна Эрмита
-	Fvector IPosS, IPosH, IPosL; //положение актера после интерполяции Бизье, Эрмита, линейной
+	float SCoeff[3][4]; //пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+	float HCoeff[3][4]; //пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	Fvector IPosS, IPosH, IPosL; //пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
 #ifdef DEBUG
     DEF_DEQUE		(VIS_POSITION, Fvector);

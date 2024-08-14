@@ -7,7 +7,15 @@
 class CCartridge;
 class CCameraBase;
 
+#ifndef CWEAPONSTATMGUN_CHANGE
+#define CWEAPONSTATMGUN_CHANGE
+#endif
+
 #define DESIRED_DIR 1
+
+#ifdef CWEAPONSTATMGUN_CHANGE
+#define CWEAPONSTATMGUN_FIRE_DEBUG
+#endif
 
 class CWeaponStatMgun : public CPhysicsShellHolder,
                         public CHolderCustom,
@@ -19,7 +27,16 @@ private:
 	typedef CShootingObject inheritedShooting;
 
 private:
+#ifdef CWEAPONSTATMGUN_CHANGE
+	enum EStmCamType{
+		ectFirst = 0,
+		ectChase,
+	};
+	CCameraBase *camera[2];
+	CCameraBase *active_camera;
+#else
 	CCameraBase* camera;
+#endif
 	// 
 	static void _BCL BoneCallbackX(CBoneInstance* B);
 	static void _BCL BoneCallbackY(CBoneInstance* B);
@@ -105,8 +122,65 @@ public:
 	virtual bool HUDView() const { return true; };
 	virtual Fvector ExitPosition();
 
+#ifdef CWEAPONSTATMGUN_CHANGE
+	virtual CCameraBase *Camera() { return active_camera; }
+#else
 	virtual CCameraBase* Camera() { return camera; };
+#endif
 
 	virtual void Action(u16 id, u32 flags);
 	virtual void SetParam(int id, Fvector2 val);
+
+#ifdef CWEAPONSTATMGUN_CHANGE
+public:
+	enum {
+		eWpnFire = 0,
+		eWpnDesiredDef,
+		eWpnDesiredPos,
+		eWpnDesiredDir,
+	};
+	virtual void SetParam(int id, Fvector val);
+
+private:
+	float m_min_gun_speed;
+	float m_max_gun_speed;
+	bool m_turn_default;
+
+	u16 m_actor_bone;
+	u16 m_exit_bone;
+	Fvector m_exit_position;
+	u16 m_camera_bone_def;
+	u16 m_camera_bone_aim;
+	float m_zoom_factor_def;
+	float m_zoom_factor_aim;
+	bool m_zoom_status;
+	Fvector m_camera_position;
+
+	LPCSTR m_animation;
+
+	static void IgnoreCollisionCallback(bool &do_colide, bool bo1, dContact &c, SGameMtl *mt1, SGameMtl *mt2);
+	void OnCameraChange(u16 type);
+
+public:
+	virtual BOOL AlwaysTheCrow();
+	virtual bool is_ai_obstacle() const;
+	virtual CGameObject *cast_game_object() { return this; }
+	virtual CPhysicsShellHolder *cast_physics_shell_holder() { return this; }
+
+	bool IsCameraZoom() { return m_zoom_status; }
+	LPCSTR Animation() { return m_animation; }
+	CGameObject *GetOwner() { return Owner(); }
+
+	float FireDirDiff();
+	bool InFieldOfView(Fvector vec);
+public:
+DECLARE_SCRIPT_REGISTER_FUNCTION
+#endif
+
 };
+
+#ifdef CWEAPONSTATMGUN_CHANGE
+add_to_type_list(CWeaponStatMgun)
+#undef script_type_list
+#define script_type_list save_type_list(CWeaponStatMgun)
+#endif

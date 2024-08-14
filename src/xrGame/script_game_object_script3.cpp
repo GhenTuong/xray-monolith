@@ -351,6 +351,7 @@ class_<CScriptGameObject>& script_register_game_object2(class_<CScriptGameObject
 		//HELICOPTER
 		.def("get_helicopter", &CScriptGameObject::get_helicopter)
 		.def("get_car", &CScriptGameObject::get_car)
+		.def("get_stmgun", &CScriptGameObject::get_stmgun)
 		.def("get_hanging_lamp", &CScriptGameObject::get_hanging_lamp)
 		.def("get_physics_shell", &CScriptGameObject::get_physics_shell)
 		.def("get_holder_class", &CScriptGameObject::get_custom_holder)
@@ -488,6 +489,7 @@ class_<CScriptGameObject>& script_register_game_object2(class_<CScriptGameObject
 		.def("cast_Actor", &CScriptGameObject::cast_Actor)
 		.def("cast_Car", &CScriptGameObject::cast_Car)
 		.def("cast_Heli", &CScriptGameObject::cast_Heli)
+		.def("cast_WeaponStatMgun", &CScriptGameObject::cast_WeaponStatMgun)
 		.def("cast_InventoryOwner", &CScriptGameObject::cast_InventoryOwner)
 		.def("cast_InventoryBox", &CScriptGameObject::cast_InventoryBox)
 		.def("cast_CustomZone", &CScriptGameObject::cast_CustomZone)

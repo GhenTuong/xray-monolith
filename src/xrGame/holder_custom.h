@@ -4,6 +4,10 @@
 
 #include "script_export_space.h"
 
+#ifndef CHOLDERCUSTOM_CHANGE
+#define CHOLDERCUSTOM_CHANGE
+#endif
+
 class CInventory;
 class CGameObject;
 class CCameraBase;

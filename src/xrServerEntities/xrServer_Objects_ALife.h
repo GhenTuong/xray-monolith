@@ -660,8 +660,8 @@ SERVER_ENTITY_DECLARE_BEGIN(CSE_ALifeStationaryMgun, CSE_ALifeDynamicObjectVisua
 
 SERVER_ENTITY_DECLARE_END
 
-//add_to_type_list(CSE_ALifeStationaryMgun)
-//#define script_type_list save_type_list(CSE_ALifeStationaryMgun)
+add_to_type_list(CSE_ALifeStationaryMgun)
+#define script_type_list save_type_list(CSE_ALifeStationaryMgun)
 
 SERVER_ENTITY_DECLARE_BEGIN(CSE_ALifeTeamBaseZone, CSE_ALifeSpaceRestrictor)
 	CSE_ALifeTeamBaseZone(LPCSTR caSection);

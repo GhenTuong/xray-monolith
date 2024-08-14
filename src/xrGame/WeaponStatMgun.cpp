@@ -12,6 +12,19 @@
 #include "game_object_space.h"
 #include "level.h"
 
+#ifdef CWEAPONSTATMGUN_CHANGE
+#include "../xrEngine/gamemtllib.h"
+#include "cameralook.h"
+#include "HUDManager.h"
+#include "CharacterPhysicsSupport.h"
+
+#include "actor_anim_defs.h"
+#include "ai/stalker/ai_stalker.h"
+#include "stalker_animation_manager.h"
+#include "sight_manager.h"
+#include "stalker_planner.h"
+#endif
+
 void CWeaponStatMgun::BoneCallbackX(CBoneInstance* B)
 {
 	CWeaponStatMgun* P = static_cast<CWeaponStatMgun*>(B->callback_param());
@@ -32,17 +45,55 @@ CWeaponStatMgun::CWeaponStatMgun()
 {
 	m_firing_disabled = false;
 	m_Ammo = xr_new<CCartridge>();
+
+#ifdef CWEAPONSTATMGUN_CHANGE
+	camera[ectFirst] = xr_new<CCameraFirstEye>(this, CCameraBase::flRelativeLink | CCameraBase::flPositionRigid);
+	camera[ectFirst]->tag = ectFirst;
+	camera[ectFirst]->Load("mounted_weapon_cam");
+
+	camera[ectChase] = xr_new<CCameraLook>(this);
+	camera[ectChase]->tag = ectChase;
+	camera[ectChase]->Load("car_free_cam");
+
+	OnCameraChange(ectFirst);
+#else
 	camera = xr_new<CCameraFirstEye>(
 		this, CCameraBase::flRelativeLink | CCameraBase::flPositionRigid | CCameraBase::flDirectionRigid);
 	camera->Load("mounted_weapon_cam");
+#endif
 
 	p_overheat = NULL;
+
+#ifdef CWEAPONSTATMGUN_CHANGE
+	m_min_gun_speed = 0.0F;
+	m_max_gun_speed = 0.0F;
+	m_turn_default = true;
+
+	m_actor_bone = BI_NONE;
+	m_exit_bone = BI_NONE;
+	m_exit_position.set(0, 0, 0);
+
+	m_camera_bone_def = BI_NONE;
+	m_camera_bone_aim = BI_NONE;
+	m_zoom_factor_def = 1.0F;
+	m_zoom_factor_aim = 1.0F;
+	m_zoom_status = false;
+	m_camera_position.set(0, 0, 0);
+
+	m_animation = "norm_torso_m134_aim_0";
+
+#endif
 }
 
 CWeaponStatMgun::~CWeaponStatMgun()
 {
 	delete_data(m_Ammo);
+#ifdef CWEAPONSTATMGUN_CHANGE
+	xr_delete(camera[ectFirst]);
+	xr_delete(camera[ectChase]);
+#else
 	xr_delete(camera);
+#endif
 }
 
 void CWeaponStatMgun::SetBoneCallbacks()
@@ -130,16 +181,62 @@ BOOL CWeaponStatMgun::net_Spawn(CSE_Abstract* DC)
 	m_bind_x.set(matrices[m_rotate_x_bone].c);
 	m_bind_y.set(matrices[m_rotate_y_bone].c);
 
+#ifdef CWEAPONSTATMGUN_CHANGE
+	/*
+	Initial directions are always H = 0 P = 0. Even when the bones were created with angled directions.
+	Example: When a bone is created with H = 60 degrees, the bone has a H = 60 degrees angle to the model.
+	But it is H = 0 degree to the bone itself.
+	*/
+	m_cur_x_rot = 0;
+	m_cur_y_rot = 0;
+#else
 	m_cur_x_rot = m_bind_x_rot;
 	m_cur_y_rot = m_bind_y_rot;
+#endif
+
 	m_destEnemyDir.setHP(m_bind_y_rot, m_bind_x_rot);
 	XFORM().transform_dir(m_destEnemyDir);
+
+#ifdef CWEAPONSTATMGUN_CHANGE
+	CInifile *ini = K->LL_UserData();
+
+	m_min_gun_speed = deg2rad(READ_IF_EXISTS(ini, r_float, "mounted_weapon_definition", "min_gun_speed", 20.0F));
+	m_max_gun_speed = deg2rad(READ_IF_EXISTS(ini, r_float, "mounted_weapon_definition", "max_gun_speed", 20.0F));
+
+	m_actor_bone = ini->line_exist("config", "actor_bone") ? K->LL_BoneID(ini->r_string("config", "actor_bone")) : BI_NONE;
+	m_exit_bone = ini->line_exist("config", "exit_bone") ? K->LL_BoneID(ini->r_string("config", "exit_bone")) : BI_NONE;
+	m_exit_position = READ_IF_EXISTS(ini, r_fvector3, "config", "zoom_factor_aim", Fvector().set(0, 0, 0));
+
+	m_camera_bone_def = ini->line_exist("config", "camera_bone_def") ? K->LL_BoneID(ini->r_string("config", "camera_bone_def")) : BI_NONE;
+	m_camera_bone_aim = ini->line_exist("config", "camera_bone_aim") ? K->LL_BoneID(ini->r_string("config", "camera_bone_aim")) : BI_NONE;
+	m_zoom_factor_def = READ_IF_EXISTS(ini, r_float, "config", "zoom_factor_def", 1.0F);
+	m_zoom_factor_aim = READ_IF_EXISTS(ini, r_float, "config", "zoom_factor_aim", 1.0F);
+	m_camera_position = READ_IF_EXISTS(ini, r_fvector3, "config", "camera_position", Fvector().set(0, 0, 0));
+
+	m_animation = READ_IF_EXISTS(ini, r_string, "config", "animation", "norm_torso_m134_aim_0");
+
+	if (ini->line_exist("camera", "camera_first") && pSettings->section_exist(ini->r_string("camera", "camera_first")))
+	{
+		camera[ectFirst]->Load(ini->r_string("camera", "camera_first"));
+	}
+	if (ini->line_exist("camera", "camera_chase") && pSettings->section_exist(ini->r_string("camera", "camera_chase")))
+	{
+		camera[ectChase]->Load(ini->r_string("camera", "camera_chase"));
+	}
+#endif
 
 	inheritedShooting::Light_Create();
 
 	processing_activate();
 	setVisible(TRUE);
 	setEnabled(TRUE);
+
+#ifdef CWEAPONSTATMGUN_CHANGE
+	PPhysicsShell()->Enable();
+	PPhysicsShell()->add_ObjectContactCallback(IgnoreCollisionCallback);
+	SetBoneCallbacks();
+#endif
+
 	return TRUE;
 }
 
@@ -151,6 +248,29 @@ void CWeaponStatMgun::net_Destroy()
 			p_overheat->Stop(FALSE);
 		CParticlesObject::Destroy(p_overheat);
 	}
+
+#ifdef CWEAPONSTATMGUN_CHANGE
+	if (Owner())
+	{
+		if (OwnerActor())
+		{
+			OwnerActor()->use_HolderEx(NULL, true);
+		}
+		else if (Owner()->cast_stalker())
+		{
+			Owner()->cast_stalker()->detach_Holder();
+		}
+		else
+		{
+			/* Should never happen. */
+			Msg("[%s] has an unknown owner. [%s]", cName(), Owner()->cName());
+		}
+	}
+
+	PPhysicsShell()->remove_ObjectContactCallback(IgnoreCollisionCallback);
+	ResetBoneCallbacks();
+#endif
+
 	inheritedPH::net_Destroy();
 	processing_deactivate();
 }
@@ -175,6 +295,45 @@ void CWeaponStatMgun::net_Import(NET_Packet& P) // import from server
 void CWeaponStatMgun::UpdateCL()
 {
 	inheritedPH::UpdateCL();
+
+#ifdef CWEAPONSTATMGUN_CHANGE
+	if (Owner())
+	{
+		if (m_actor_bone != BI_NONE)
+		{
+			IKinematics *K = smart_cast<IKinematics *>(Visual());
+			Owner()->XFORM().set(Fmatrix().mul_43(XFORM(), K->LL_GetTransform(m_actor_bone)));
+		}
+		else
+		{
+			Owner()->XFORM().set(XFORM());
+		}
+
+		if (OwnerActor() && OwnerActor()->IsMyCamera())
+		{
+			cam_Update(Device.fTimeDelta, g_fov);
+			OwnerActor()->Cameras().UpdateFromCamera(Camera());
+			OwnerActor()->Cameras().ApplyDevice(VIEWPORT_NEAR);
+
+			if (IsCameraZoom())
+			{
+				m_destEnemyDir.set(Camera()->Direction());
+				m_turn_default = false;
+			}
+			else
+			{
+				Fvector pos = Camera()->Position();
+				Fvector dir = Camera()->Direction();
+				collide::rq_result &R = HUD().GetCurrentRayQuery();
+				Fvector vec = Fvector().mad(pos, dir, (R.range > 3.f) ? R.range : 30.f);
+				m_destEnemyDir.sub(vec, m_fire_pos).normalize();
+				m_turn_default = false;
+			}
+		}
+	}
+	UpdateBarrelDir();
+	UpdateFire();
+#else
 	UpdateBarrelDir();
 	UpdateFire();
 
@@ -184,6 +343,7 @@ void CWeaponStatMgun::UpdateCL()
 		OwnerActor()->Cameras().UpdateFromCamera(Camera());
 		OwnerActor()->Cameras().ApplyDevice(VIEWPORT_NEAR);
 	}
+#endif
 }
 
 //void CWeaponStatMgun::Hit(	float P, Fvector &dir,	CObject* who, 
@@ -211,6 +371,51 @@ void CWeaponStatMgun::UpdateBarrelDir()
 	Fmatrix XFi;
 	XFi.invert(XFORM());
 	Fvector dep;
+
+#ifdef CWEAPONSTATMGUN_CHANGE
+	/*
+		Take m_i_bind_y_xform as base for both bone x and bone y. Assume bone y will always have 0 pitch.
+		And reset dep before calculating.
+	*/
+	{
+		// x angle
+		if (m_turn_default)
+		{
+			dep.setHP(m_bind_y_rot, m_bind_x_rot);
+		}
+		else
+		{
+			XFi.transform_dir(dep, m_destEnemyDir);
+		}
+		m_i_bind_y_xform.transform_dir(dep);
+		dep.normalize();
+		m_tgt_x_rot = angle_normalize_signed(m_bind_x_rot - dep.getP());
+		clamp(m_tgt_x_rot, -m_lim_x_rot.y, -m_lim_x_rot.x);
+	}
+	{
+		// y angle
+		if (m_turn_default)
+		{
+			dep.setHP(m_bind_y_rot, m_bind_x_rot);
+		}
+		else
+		{
+			XFi.transform_dir(dep, m_destEnemyDir);
+		}
+		m_i_bind_y_xform.transform_dir(dep);
+		dep.normalize();
+		m_tgt_y_rot = angle_normalize_signed(m_bind_y_rot - dep.getH());
+		clamp(m_tgt_y_rot, -m_lim_y_rot.y, -m_lim_y_rot.x);
+	}
+
+	m_cur_x_rot = angle_inertion_var(m_cur_x_rot, m_tgt_x_rot, m_min_gun_speed, m_max_gun_speed, PI, Device.fTimeDelta);
+	m_cur_y_rot = angle_inertion_var(m_cur_y_rot, m_tgt_y_rot, m_min_gun_speed, m_max_gun_speed, PI, Device.fTimeDelta);
+	static float dir_eps = deg2rad(5.0f);
+	if (!fsimilar(m_cur_x_rot, m_tgt_x_rot, dir_eps) || !fsimilar(m_cur_y_rot, m_tgt_y_rot, dir_eps))
+	{
+		m_allow_fire = FALSE;
+	}
+#else
 	XFi.transform_dir(dep, m_destEnemyDir);
 	{
 		// x angle
@@ -234,10 +439,45 @@ void CWeaponStatMgun::UpdateBarrelDir()
 
 	m_cur_x_rot = angle_inertion_var(m_cur_x_rot, m_tgt_x_rot, 0.5f, 3.5f, PI_DIV_6, Device.fTimeDelta);
 	m_cur_y_rot = angle_inertion_var(m_cur_y_rot, m_tgt_y_rot, 0.5f, 3.5f, PI_DIV_6, Device.fTimeDelta);
+#endif
 }
 
 void CWeaponStatMgun::cam_Update(float dt, float fov)
 {
+#ifdef CWEAPONSTATMGUN_CHANGE
+	Fvector P;
+	Fvector D;
+	D.set(0, 0, 0);
+	CCameraBase *cam = Camera();
+
+	switch (cam->tag)
+	{
+	case ectFirst:
+	case ectChase:
+	{
+		u16 bone_id = m_camera_bone;
+		if (m_camera_bone_def != BI_NONE)
+		{
+			bone_id = (IsCameraZoom() && (m_camera_bone_aim != BI_NONE)) ? m_camera_bone_aim : m_camera_bone_def;
+		}
+
+		IKinematics *K = smart_cast<IKinematics *>(Visual());
+		Fmatrix xform = K->LL_GetTransform(bone_id);
+		XFORM().transform_tiny(P, xform.c);
+
+		if (OwnerActor())
+			OwnerActor()->Orientation().yaw = -cam->yaw;
+		if (OwnerActor())
+			OwnerActor()->Orientation().pitch = -cam->pitch;
+		break;
+	}
+	}
+
+	float zoom_factor = (IsCameraZoom()) ? m_zoom_factor_aim : m_zoom_factor_def;
+	cam->f_fov = fov / zoom_factor;
+	cam->Update(P, D);
+	Level().Cameras().UpdateFromCamera(cam);
+#else
 	camera->f_fov = g_fov;
 
 	Fvector P, Da;
@@ -271,6 +511,7 @@ void CWeaponStatMgun::cam_Update(float dt, float fov)
 
 	Camera()->Update(P, Da);
 	Level().Cameras().UpdateFromCamera(Camera());
+#endif
 }
 
 void CWeaponStatMgun::renderable_Render()
@@ -283,6 +524,9 @@ void CWeaponStatMgun::renderable_Render()
 void CWeaponStatMgun::SetDesiredDir(float h, float p)
 {
 	m_destEnemyDir.setHP(h, p);
+#ifdef CWEAPONSTATMGUN_CHANGE
+	m_turn_default = false;
+#endif
 }
 
 void CWeaponStatMgun::Action(u16 id, u32 flags)
@@ -290,12 +534,30 @@ void CWeaponStatMgun::Action(u16 id, u32 flags)
 	inheritedHolder::Action(id, flags);
 	switch (id)
 	{
+#ifdef CWEAPONSTATMGUN_CHANGE
+	case eWpnFire:
+		if (flags)
+		{
+			FireStart();
+		}
+		else
+		{
+			FireEnd();
+		}
+		break;
+	case eWpnDesiredDef:
+		m_turn_default = true;
+		break;
+	default:
+		break;
+#else
 	case kWPN_FIRE:
 		{
 			if (flags == CMD_START) FireStart();
 			else FireEnd();
 		}
 		break;
+#endif
 	}
 }
 
@@ -310,30 +572,153 @@ void CWeaponStatMgun::SetParam(int id, Fvector2 val)
 	}
 }
 
+#ifdef CWEAPONSTATMGUN_CHANGE
+void CWeaponStatMgun::SetParam(int id, Fvector val)
+{
+	inheritedHolder::SetParam(id, val);
+	switch (id)
+	{
+	case eWpnDesiredPos:
+		Fvector vec;
+		XFORM().transform_tiny(vec, m_i_bind_y_xform.c);
+		m_destEnemyDir.sub(val, vec).normalize_safe();
+		m_turn_default = false;
+		break;
+	case eWpnDesiredDir:
+		m_destEnemyDir.set(val).normalize_safe();
+		m_turn_default = false;
+		break;
+	}
+}
+#endif
+
 bool CWeaponStatMgun::attach_Actor(CGameObject* actor)
 {
+#ifdef CWEAPONSTATMGUN_CHANGE
 	if (Owner())
 		return false;
 
+	if (!actor)
+		return false;
+
+	inheritedHolder::attach_Actor(actor);
+	if (OwnerActor())
+	{
+		if (Camera()->tag == ectFirst)
+		{
+			OwnerActor()->setVisible(FALSE);
+		}
+	}
+	return true;
+#else
+	if (Owner())
+		return false;
 	actor->setVisible(0);
 	inheritedHolder::attach_Actor(actor);
 	SetBoneCallbacks();
 	FireEnd();
 	return true;
+#endif
 }
 
 void CWeaponStatMgun::detach_Actor()
 {
+#ifdef CWEAPONSTATMGUN_CHANGE
+	if (!Owner())
+		return;
+
+	if (OwnerActor())
+	{
+		OwnerActor()->setVisible(TRUE);
+	}
+	inheritedHolder::detach_Actor();
+#else
 	Owner()->setVisible(1);
 	inheritedHolder::detach_Actor();
 	ResetBoneCallbacks();
 	FireEnd();
+#endif
 }
 
 Fvector CWeaponStatMgun::ExitPosition()
 {
+#ifdef CWEAPONSTATMGUN_CHANGE
+	Fvector pos;
+	pos.set(0.0F, 0.0F, 0.0F);
+	IKinematics *K = smart_cast<IKinematics *>(Visual());
+	Fmatrix xform = K->LL_GetTransform(m_actor_bone);
+	XFORM().transform_tiny(pos, xform.c);
+	return pos;
+#else
 	Fvector pos; pos.set(0.f, 0.f, 0.f);
 	pos.sub(camera->Direction()).normalize();
 	pos.y = 0.f;
 	return Fvector(XFORM().c).add(pos);
+#endif
 }
+
+#ifdef CWEAPONSTATMGUN_CHANGE
+BOOL CWeaponStatMgun::AlwaysTheCrow()
+{
+	return true;
+}
+
+bool CWeaponStatMgun::is_ai_obstacle() const
+{
+	return true;
+}
+
+void CWeaponStatMgun::IgnoreCollisionCallback(bool &do_colide, bool bo1, dContact &c, SGameMtl *mt1, SGameMtl *mt2)
+{
+	if (do_colide == false)
+		return;
+
+	dxGeomUserData *gd1 = bo1 ? PHRetrieveGeomUserData(c.geom.g1) : PHRetrieveGeomUserData(c.geom.g2);
+	dxGeomUserData *gd2 = bo1 ? PHRetrieveGeomUserData(c.geom.g2) : PHRetrieveGeomUserData(c.geom.g1);
+	CGameObject *obj = (gd1) ? smart_cast<CGameObject *>(gd1->ph_ref_object) : nullptr;
+	CGameObject *who = (gd2) ? smart_cast<CGameObject *>(gd2->ph_ref_object) : nullptr;
+	if (!obj || !who)
+	{
+		return;
+	}
+
+	CWeaponStatMgun *stm = smart_cast<CWeaponStatMgun *>(obj);
+	CGameObject *owner = (stm) ? stm->Owner() : nullptr;
+	if (owner && (owner->ID() == who->ID()))
+	{
+		do_colide = false;
+	}
+}
+
+void CWeaponStatMgun::OnCameraChange(u16 type)
+{
+	if (OwnerActor())
+	{
+		if (type == ectFirst)
+		{
+			OwnerActor()->setVisible(FALSE);
+		}
+		else
+		{
+			OwnerActor()->setVisible(TRUE);
+		}
+	}
+
+	if (active_camera == NULL || active_camera->tag != type)
+	{
+		active_camera = camera[type];
+	}
+}
+
+float CWeaponStatMgun::FireDirDiff()
+{
+	Fvector v1 = Fvector().setHP(m_cur_y_rot, m_cur_x_rot).normalize_safe();
+	Fvector v2 = Fvector().setHP(m_tgt_y_rot, m_tgt_x_rot).normalize_safe();
+	return rad2deg(acos(v1.dotproduct(v2)));
+}
+
+bool CWeaponStatMgun::InFieldOfView(Fvector vec)
+{
+	return true;
+}
+#endif

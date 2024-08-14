@@ -17,6 +17,7 @@
 #include "game_location_selector.h"
 #include "Actor.h"
 #include "Car.h"
+#include "WeaponStatMgun.h"
 #include "helicopter.h"
 #include "InventoryOwner.h"
 #include "InventoryBox.h"
@@ -103,6 +104,7 @@ class CHolderCustom;
 struct ScriptCallbackInfo;
 struct STasks;
 class CCar;
+class CWeaponStatMgun;
 class CDangerObject;
 class CScriptGameObject;
 class CZoneCampfire;
@@ -673,6 +675,7 @@ public:
 	CHelicopter* get_helicopter();
 	//CAR
 	CCar* get_car();
+	CWeaponStatMgun *get_stmgun();
 	//LAMP
 	CHangingLamp* get_hanging_lamp();
 
@@ -906,6 +909,7 @@ public:
 	_DECLARE_FUNCTION14(cast_Actor, CActor);
 	_DECLARE_FUNCTION14(cast_Car, CCar);
 	_DECLARE_FUNCTION14(cast_Heli, CHelicopter);
+	_DECLARE_FUNCTION14(cast_WeaponStatMgun, CWeaponStatMgun);
 	_DECLARE_FUNCTION14(cast_InventoryOwner, CInventoryOwner);
 	_DECLARE_FUNCTION14(cast_InventoryBox, CInventoryBox);
 	_DECLARE_FUNCTION14(cast_CustomZone, CCustomZone);

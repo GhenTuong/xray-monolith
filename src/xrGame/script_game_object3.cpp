@@ -1567,6 +1567,18 @@ void CScriptGameObject::AttachVehicle(CScriptGameObject* veh, bool bForce)
 		else
 			ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "CGameObject : cannot be cast to CHolderCustom!");
 	}
+
+#ifdef CHOLDERCUSTOM_CHANGE
+	CAI_Stalker *npc = smart_cast<CAI_Stalker *>(&object());
+	if (npc)
+	{
+		CHolderCustom *vehicle = smart_cast<CHolderCustom *>(&veh->object());
+		if (vehicle)
+			npc->use_HolderEx(vehicle, bForce);
+		else
+			ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "CGameObject : cannot be cast to CHolderCustom!");
+	}
+#endif
 }
 
 void CScriptGameObject::DetachVehicle(bool bForce)
@@ -1576,6 +1588,14 @@ void CScriptGameObject::DetachVehicle(bool bForce)
 	{
 		actor->use_HolderEx(NULL, bForce);
 	}
+
+#ifdef CHOLDERCUSTOM_CHANGE
+	CAI_Stalker *npc = smart_cast<CAI_Stalker *>(&object());
+	if (npc)
+	{
+		npc->use_HolderEx(NULL, bForce);
+	}
+#endif
 }
 
 CScriptGameObject* CScriptGameObject::GetAttachedVehicle()

@@ -222,6 +222,11 @@ void CStalkerAnimationManager::update_impl()
 	if (!object().g_Alive())
 		return;
 
+#ifdef CHOLDERCUSTOM_CHANGE
+	if (!!object().Holder())
+		return;
+#endif
+
 	update_tracks();
 	play_delayed_callbacks();
 
