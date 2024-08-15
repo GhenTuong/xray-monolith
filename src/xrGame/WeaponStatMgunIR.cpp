@@ -118,7 +118,12 @@ void CWeaponStatMgun::script_register(lua_State* L)
 			value("eWpnDesiredPos", int(CWeaponStatMgun::eWpnDesiredPos)),
 			value("eWpnDesiredDir", int(CWeaponStatMgun::eWpnDesiredDir))
 		]
+		.def("Action", &CWeaponStatMgun::Action)
+		.def("SetParam", (void (CWeaponStatMgun::*)(int, Fvector))&CWeaponStatMgun::SetParam)
+
 		.def("GetOwner", &CWeaponStatMgun::GetOwner)
+		.def("GetFirePos", &CWeaponStatMgun::GetFirePos)
+		.def("GetFireDir", &CWeaponStatMgun::GetFireDir)
 		.def("ExitPosition", &CWeaponStatMgun::ExitPosition)
 		.def("FireDirDiff", &CWeaponStatMgun::FireDirDiff)
 		.def("InFieldOfView", &CWeaponStatMgun::InFieldOfView)

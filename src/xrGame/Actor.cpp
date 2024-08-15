@@ -1145,6 +1145,10 @@ void CActor::UpdateCL()
 
 	cam_Update(float(Device.dwTimeDelta) / 1000.0f, currentFOV());
 
+#ifdef CWEAPONSTATMGUN_CHANGE
+	CWeaponStatMgun *stm = smart_cast<CWeaponStatMgun *>(Holder());
+#endif
+
 	if (Level().CurrentEntity() && this->ID() == Level().CurrentEntity()->ID())
 	{
 		psHUD_Flags.set(HUD_CROSSHAIR_RT2, true);
@@ -1198,6 +1202,15 @@ void CActor::UpdateCL()
 			g_pGamePersistent->m_pGShaderConstants->hud_params.w = Device.m_SecondViewport.IsSVPFrame();
 		}
 	}
+#ifdef CWEAPONSTATMGUN_CHANGE
+	else if (stm && !stm->IsCameraZoom())
+	{
+		HUD().SetCrosshairDisp(stm->FireDispersionBase());
+		HUD().ShowCrosshair(true);
+		g_pGamePersistent->m_pGShaderConstants->hud_params.set(0.f, 0.f, 0.f, 0.f);
+		g_pGamePersistent->m_pGShaderConstants->m_blender_mode.set(0.f, 0.f, 0.f, 0.f);
+	}
+#endif
 	else
 	{
 		if (Level().CurrentEntity() && this->ID() == Level().CurrentEntity()->ID())
@@ -1442,6 +1455,7 @@ bool CActor::attach_Vehicle(CHolderCustom *object, bool bForce)
 		Center(center);
 		if (bForce || object->Use(Device.vCameraPosition, Device.vCameraDirection, center) && object->attach_Actor(this))
 		{
+			inventory().SetPrevActiveSlot(inventory().GetActiveSlot());
 			inventory().SetActiveSlot(NO_ACTIVE_SLOT);
 			SetWeaponHideState(INV_STATE_BLOCK_ALL, true);
 
@@ -1477,12 +1491,14 @@ bool CActor::attach_Vehicle(CHolderCustom *object, bool bForce)
 			}
 
 #ifdef CWEAPONSTATMGUN_CHANGE
-			CWeaponStatMgun *wsm = smart_cast<CWeaponStatMgun *>(object);
-			if (wsm)
+			CWeaponStatMgun *stm = smart_cast<CWeaponStatMgun *>(object);
+			if (stm)
 			{
 				IKinematicsAnimated *V = smart_cast<IKinematicsAnimated *>(Visual());
 				R_ASSERT(V);
-				V->PlayCycle(wsm->Animation(), FALSE);
+				LPCSTR anim = stm->Animation(cast_game_object());
+				if (anim && strlen(anim))
+					V->PlayCycle(anim, FALSE);
 				CStepManager::on_animation_start(MotionID(), 0);
 			}
 #endif
@@ -1518,6 +1534,8 @@ void CActor::detach_Vehicle(bool bForce)
 		}
 
 		SetWeaponHideState(INV_STATE_BLOCK_ALL, false);
+		inventory().SetActiveSlot(inventory().GetPrevActiveSlot());
+		inventory().SetPrevActiveSlot(NO_ACTIVE_SLOT);
 
 		if (GO)
 		{

@@ -82,6 +82,7 @@ CWeaponStatMgun::CWeaponStatMgun()
 
 	m_animation = "norm_torso_m134_aim_0";
 
+	m_on_before_use_callback = NULL;
 #endif
 }
 
@@ -143,6 +144,13 @@ void CWeaponStatMgun::Load(LPCSTR section)
 
 	VERIFY(!fis_zero(camMaxAngle));
 	VERIFY(!fis_zero(camRelaxSpeed));
+
+#ifdef CWEAPONSTATMGUN_CHANGE
+	if (pSettings->line_exist(cNameSect_str(), "on_before_use"))
+	{
+		m_on_before_use_callback = READ_IF_EXISTS(pSettings, r_string, cNameSect_str(), "on_before_use", "");
+	}
+#endif
 }
 
 BOOL CWeaponStatMgun::net_Spawn(CSE_Abstract* DC)
@@ -250,21 +258,9 @@ void CWeaponStatMgun::net_Destroy()
 	}
 
 #ifdef CWEAPONSTATMGUN_CHANGE
-	if (Owner())
+	if (Owner() && Owner()->cast_stalker())
 	{
-		if (OwnerActor())
-		{
-			OwnerActor()->use_HolderEx(NULL, true);
-		}
-		else if (Owner()->cast_stalker())
-		{
-			Owner()->cast_stalker()->detach_Holder();
-		}
-		else
-		{
-			/* Should never happen. */
-			Msg("[%s] has an unknown owner. [%s]", cName(), Owner()->cName());
-		}
+		Owner()->cast_stalker()->detach_Holder();
 	}
 
 	PPhysicsShell()->remove_ObjectContactCallback(IgnoreCollisionCallback);
@@ -301,7 +297,7 @@ void CWeaponStatMgun::UpdateCL()
 	{
 		if (m_actor_bone != BI_NONE)
 		{
-			IKinematics *K = smart_cast<IKinematics *>(Visual());
+			IKinematics *K = Visual()->dcast_PKinematics();
 			Owner()->XFORM().set(Fmatrix().mul_43(XFORM(), K->LL_GetTransform(m_actor_bone)));
 		}
 		else
@@ -461,7 +457,7 @@ void CWeaponStatMgun::cam_Update(float dt, float fov)
 			bone_id = (IsCameraZoom() && (m_camera_bone_aim != BI_NONE)) ? m_camera_bone_aim : m_camera_bone_def;
 		}
 
-		IKinematics *K = smart_cast<IKinematics *>(Visual());
+		IKinematics *K = Visual()->dcast_PKinematics();
 		Fmatrix xform = K->LL_GetTransform(bone_id);
 		XFORM().transform_tiny(P, xform.c);
 
@@ -538,11 +534,13 @@ void CWeaponStatMgun::Action(u16 id, u32 flags)
 	case eWpnFire:
 		if (flags)
 		{
-			FireStart();
+			if (!IsWorking())
+				FireStart();
 		}
 		else
 		{
-			FireEnd();
+			if (IsWorking())
+				FireEnd();
 		}
 		break;
 	case eWpnDesiredDef:
@@ -579,8 +577,7 @@ void CWeaponStatMgun::SetParam(int id, Fvector val)
 	switch (id)
 	{
 	case eWpnDesiredPos:
-		Fvector vec;
-		XFORM().transform_tiny(vec, m_i_bind_y_xform.c);
+		Fvector vec = Fmatrix().mul_43(XFORM(), Visual()->dcast_PKinematics()->LL_GetTransform(m_rotate_y_bone)).c;
 		m_destEnemyDir.sub(val, vec).normalize_safe();
 		m_turn_default = false;
 		break;
@@ -645,7 +642,7 @@ Fvector CWeaponStatMgun::ExitPosition()
 #ifdef CWEAPONSTATMGUN_CHANGE
 	Fvector pos;
 	pos.set(0.0F, 0.0F, 0.0F);
-	IKinematics *K = smart_cast<IKinematics *>(Visual());
+	IKinematics *K = Visual()->dcast_PKinematics();
 	Fmatrix xform = K->LL_GetTransform(m_actor_bone);
 	XFORM().transform_tiny(pos, xform.c);
 	return pos;
@@ -690,6 +687,25 @@ void CWeaponStatMgun::IgnoreCollisionCallback(bool &do_colide, bool bo1, dContac
 	}
 }
 
+bool CWeaponStatMgun::Use(const Fvector &pos, const Fvector &dir, const Fvector &foot_pos)
+{
+	if (Owner())
+		return false;
+
+	if (m_on_before_use_callback && strlen(m_on_before_use_callback))
+	{
+		luabind::functor<bool> lua_function;
+		if (ai().script_engine().functor(m_on_before_use_callback, lua_function))
+		{
+			if (!lua_function(lua_game_object(), pos, dir, foot_pos))
+			{
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
 void CWeaponStatMgun::OnCameraChange(u16 type)
 {
 	if (OwnerActor())
@@ -712,13 +728,34 @@ void CWeaponStatMgun::OnCameraChange(u16 type)
 
 float CWeaponStatMgun::FireDirDiff()
 {
-	Fvector v1 = Fvector().setHP(m_cur_y_rot, m_cur_x_rot).normalize_safe();
-	Fvector v2 = Fvector().setHP(m_tgt_y_rot, m_tgt_x_rot).normalize_safe();
-	return rad2deg(acos(v1.dotproduct(v2)));
+	Fvector v1 = Fvector().set(m_fire_dir).normalize_safe();
+	Fvector v2 = Fvector().set(m_destEnemyDir).normalize_safe();
+#if 0
+	Msg("[%s] v1 %.1f %.1f", cName().c_str(), rad2deg(v1.getH()), rad2deg(v1.getP()));
+	Msg("[%s] v2 %.1f %.1f", cName().c_str(), rad2deg(v2.getH()), rad2deg(v2.getP()));
+#endif
+	return abs(acos(v1.dotproduct(v2)));
 }
 
-bool CWeaponStatMgun::InFieldOfView(Fvector vec)
+bool CWeaponStatMgun::InFieldOfView(Fvector pos)
 {
+	Fvector vec;
+	Fmatrix().invert(XFORM()).transform_tiny(vec, pos);
+	Fvector dir = Fvector().sub(vec, Visual()->dcast_PKinematics()->LL_GetTransform(m_rotate_y_bone).c).normalize();
+	float h = dir.getH();
+	float p = dir.getP();
+#if 0
+	Msg("[%s] Y %.1f %.1f %.1f", cName().c_str(), rad2deg(h), rad2deg(-m_lim_y_rot.y), rad2deg(-m_lim_y_rot.x));
+	Msg("[%s] X %.1f %.1f %.1f", cName().c_str(), rad2deg(p), rad2deg(-m_lim_x_rot.y), rad2deg(-m_lim_x_rot.x));
+#endif
+	if (h < -m_lim_y_rot.y || -m_lim_y_rot.x < h)
+	{
+		return false;
+	}
+	if (p < -m_lim_x_rot.y || -m_lim_x_rot.x < p)
+	{
+		return false;
+	}
 	return true;
 }
 #endif

@@ -103,8 +103,7 @@ static inline float select_speed(float const distance, float const speed, float 
 void CSightManager::Exec_Look(float time_delta)
 {
 #ifdef CHOLDERCUSTOM_CHANGE
-	if (!!object().Holder())
-		return;
+
 #endif
 
 	START_PROFILE("Sight Manager")

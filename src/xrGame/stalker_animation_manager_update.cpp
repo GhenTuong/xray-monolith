@@ -223,8 +223,7 @@ void CStalkerAnimationManager::update_impl()
 		return;
 
 #ifdef CHOLDERCUSTOM_CHANGE
-	if (!!object().Holder())
-		return;
+
 #endif
 
 	update_tracks();

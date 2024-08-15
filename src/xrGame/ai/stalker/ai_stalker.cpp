@@ -807,6 +807,9 @@ BOOL CAI_Stalker::net_Spawn(CSE_Abstract* DC)
 
 void CAI_Stalker::net_Destroy()
 {
+#ifdef CHOLDERCUSTOM_CHANGE
+	detach_Holder();
+#endif
 	inherited::net_Destroy();
 	CInventoryOwner::net_Destroy();
 	m_pPhysics_support->in_NetDestroy();
@@ -1597,7 +1600,6 @@ void CAI_Stalker::ChangeVisual(shared_str NewVisual)
 #ifdef CHOLDERCUSTOM_CHANGE
 bool CAI_Stalker::attach_Holder(CHolderCustom *holder)
 {
-
 	if (holder == NULL)
 		return false;
 
@@ -1607,6 +1609,15 @@ bool CAI_Stalker::attach_Holder(CHolderCustom *holder)
 		if (stm->attach_Actor(cast_game_object()))
 		{
 			m_holder = holder;
+/*
+			LPCSTR anim = m_holder->Animation(cast_game_object());
+			if (anim && strlen(anim))
+			{
+				IKinematicsAnimated *V = smart_cast<IKinematicsAnimated *>(Visual());
+				if (V)
+					V->PlayCycle(anim, FALSE);
+			}
+*/
 			return true;
 		}
 		return false;

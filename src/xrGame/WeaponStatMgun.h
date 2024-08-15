@@ -14,6 +14,7 @@ class CCameraBase;
 #define DESIRED_DIR 1
 
 #ifdef CWEAPONSTATMGUN_CHANGE
+#include "script_game_object.h"
 #define CWEAPONSTATMGUN_FIRE_DEBUG
 #endif
 
@@ -106,7 +107,11 @@ protected:
 
 	//HolderCustom
 public:
+#ifdef CWEAPONSTATMGUN_CHANGE
+	virtual bool Use(const Fvector &pos, const Fvector &dir, const Fvector &foot_pos);
+#else
 	virtual bool Use(const Fvector& pos, const Fvector& dir, const Fvector& foot_pos) { return !Owner(); };
+#endif
 	virtual void OnMouseMove(int x, int y);
 	virtual void OnKeyboardPress(int dik);
 	virtual void OnKeyboardRelease(int dik);
@@ -161,18 +166,24 @@ private:
 	static void IgnoreCollisionCallback(bool &do_colide, bool bo1, dContact &c, SGameMtl *mt1, SGameMtl *mt2);
 	void OnCameraChange(u16 type);
 
+	LPCSTR m_on_before_use_callback;
+
 public:
 	virtual BOOL AlwaysTheCrow();
 	virtual bool is_ai_obstacle() const;
 	virtual CGameObject *cast_game_object() { return this; }
 	virtual CPhysicsShellHolder *cast_physics_shell_holder() { return this; }
+	virtual LPCSTR Animation(CGameObject *owner) { return m_animation; }
 
+	CScriptGameObject *GetOwner() { return (Owner()) ? Owner()->lua_game_object() : nullptr; }
+	Fvector GetFirePos() { return m_fire_pos; }
+	Fvector GetFireDir() { return m_fire_dir; }
+	float FireDispersionBase() { return fireDispersionBase; }
 	bool IsCameraZoom() { return m_zoom_status; }
-	LPCSTR Animation() { return m_animation; }
-	CGameObject *GetOwner() { return Owner(); }
 
 	float FireDirDiff();
-	bool InFieldOfView(Fvector vec);
+	bool InFieldOfView(Fvector pos);
+
 public:
 DECLARE_SCRIPT_REGISTER_FUNCTION
 #endif
