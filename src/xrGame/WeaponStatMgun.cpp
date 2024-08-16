@@ -260,18 +260,20 @@ void CWeaponStatMgun::net_Destroy()
 	}
 
 #ifdef CWEAPONSTATMGUN_CHANGE
+	if (Owner())
+	{
 #ifdef CHOLDERCUSTOM_CHANGE
-	if (Owner()->cast_stalker() && !Owner()->cast_stalker()->g_Alive())
-	{
-		Owner()->cast_stalker()->detach_Holder();
-		return;
-	}
+		if (Owner()->cast_stalker() && !Owner()->cast_stalker()->g_Alive())
+		{
+			Owner()->cast_stalker()->detach_Holder();
+			return;
+		}
 #endif
-
-	if (OwnerActor() && !OwnerActor()->g_Alive())
-	{
-		OwnerActor()->use_HolderEx(NULL, true);
-		return;
+		if (OwnerActor() && !OwnerActor()->g_Alive())
+		{
+			OwnerActor()->use_HolderEx(NULL, true);
+			return;
+		}
 	}
 
 	PPhysicsShell()->remove_ObjectContactCallback(IgnoreOwnerCallback);
@@ -304,10 +306,7 @@ void CWeaponStatMgun::UpdateCL()
 	inheritedPH::UpdateCL();
 
 #ifdef CWEAPONSTATMGUN_CHANGE
-	if (Owner())
-	{
-		UpdateOwner();
-	}
+	UpdateOwner();
 
 	UpdateBarrelDir();
 	UpdateFire();
@@ -696,6 +695,9 @@ bool CWeaponStatMgun::Use(const Fvector &pos, const Fvector &dir, const Fvector 
 
 void CWeaponStatMgun::UpdateOwner()
 {
+	if (!Owner())
+		return;
+
 #ifdef CHOLDERCUSTOM_CHANGE
 	if (Owner()->cast_stalker() && !Owner()->cast_stalker()->g_Alive())
 	{
@@ -703,7 +705,6 @@ void CWeaponStatMgun::UpdateOwner()
 		return;
 	}
 #endif
-
 	if (OwnerActor() && !OwnerActor()->g_Alive())
 	{
 		OwnerActor()->use_HolderEx(NULL, true);
