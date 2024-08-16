@@ -72,6 +72,7 @@ CWeaponStatMgun::CWeaponStatMgun()
 	m_actor_bone = BI_NONE;
 	m_exit_bone = BI_NONE;
 	m_exit_position.set(0, 0, 0);
+	m_user_position.set(0, 0, 0);
 
 	m_camera_bone_def = BI_NONE;
 	m_camera_bone_aim = BI_NONE;
@@ -213,7 +214,8 @@ BOOL CWeaponStatMgun::net_Spawn(CSE_Abstract* DC)
 
 	m_actor_bone = ini->line_exist("config", "actor_bone") ? K->LL_BoneID(ini->r_string("config", "actor_bone")) : BI_NONE;
 	m_exit_bone = ini->line_exist("config", "exit_bone") ? K->LL_BoneID(ini->r_string("config", "exit_bone")) : BI_NONE;
-	m_exit_position = READ_IF_EXISTS(ini, r_fvector3, "config", "zoom_factor_aim", Fvector().set(0, 0, 0));
+	m_exit_position = READ_IF_EXISTS(ini, r_fvector3, "config", "exit_position", Fvector().set(0, 0, 0));
+	m_user_position = READ_IF_EXISTS(ini, r_fvector3, "config", "user_position", Fvector().set(0, 0, 0));
 
 	m_camera_bone_def = ini->line_exist("config", "camera_bone_def") ? K->LL_BoneID(ini->r_string("config", "camera_bone_def")) : BI_NONE;
 	m_camera_bone_aim = ini->line_exist("config", "camera_bone_aim") ? K->LL_BoneID(ini->r_string("config", "camera_bone_aim")) : BI_NONE;
@@ -241,7 +243,7 @@ BOOL CWeaponStatMgun::net_Spawn(CSE_Abstract* DC)
 
 #ifdef CWEAPONSTATMGUN_CHANGE
 	PPhysicsShell()->Enable();
-	PPhysicsShell()->add_ObjectContactCallback(IgnoreCollisionCallback);
+	PPhysicsShell()->add_ObjectContactCallback(IgnoreOwnerCallback);
 	SetBoneCallbacks();
 #endif
 
@@ -258,12 +260,21 @@ void CWeaponStatMgun::net_Destroy()
 	}
 
 #ifdef CWEAPONSTATMGUN_CHANGE
-	if (Owner() && Owner()->cast_stalker())
+#ifdef CHOLDERCUSTOM_CHANGE
+	if (Owner()->cast_stalker() && !Owner()->cast_stalker()->g_Alive())
 	{
 		Owner()->cast_stalker()->detach_Holder();
+		return;
+	}
+#endif
+
+	if (OwnerActor() && !OwnerActor()->g_Alive())
+	{
+		OwnerActor()->use_HolderEx(NULL, true);
+		return;
 	}
 
-	PPhysicsShell()->remove_ObjectContactCallback(IgnoreCollisionCallback);
+	PPhysicsShell()->remove_ObjectContactCallback(IgnoreOwnerCallback);
 	ResetBoneCallbacks();
 #endif
 
@@ -295,38 +306,9 @@ void CWeaponStatMgun::UpdateCL()
 #ifdef CWEAPONSTATMGUN_CHANGE
 	if (Owner())
 	{
-		if (m_actor_bone != BI_NONE)
-		{
-			IKinematics *K = Visual()->dcast_PKinematics();
-			Owner()->XFORM().set(Fmatrix().mul_43(XFORM(), K->LL_GetTransform(m_actor_bone)));
-		}
-		else
-		{
-			Owner()->XFORM().set(XFORM());
-		}
-
-		if (OwnerActor() && OwnerActor()->IsMyCamera())
-		{
-			cam_Update(Device.fTimeDelta, g_fov);
-			OwnerActor()->Cameras().UpdateFromCamera(Camera());
-			OwnerActor()->Cameras().ApplyDevice(VIEWPORT_NEAR);
-
-			if (IsCameraZoom())
-			{
-				m_destEnemyDir.set(Camera()->Direction());
-				m_turn_default = false;
-			}
-			else
-			{
-				Fvector pos = Camera()->Position();
-				Fvector dir = Camera()->Direction();
-				collide::rq_result &R = HUD().GetCurrentRayQuery();
-				Fvector vec = Fvector().mad(pos, dir, (R.range > 3.f) ? R.range : 30.f);
-				m_destEnemyDir.sub(vec, m_fire_pos).normalize();
-				m_turn_default = false;
-			}
-		}
+		UpdateOwner();
 	}
+
 	UpdateBarrelDir();
 	UpdateFire();
 #else
@@ -347,9 +329,13 @@ void CWeaponStatMgun::UpdateCL()
 //							float impulse, ALife::EHitType hit_type)
 void CWeaponStatMgun::Hit(SHit* pHDS)
 {
+#ifdef CWEAPONSTATMGUN_CHANGE
+	inheritedPH::Hit(pHDS);
+#else
 	if (NULL == Owner())
 		//		inheritedPH::Hit(P,dir,who,element,p_in_object_space,impulse,hit_type);
 		inheritedPH::Hit(pHDS);
+#endif
 }
 
 void CWeaponStatMgun::UpdateBarrelDir()
@@ -606,6 +592,7 @@ bool CWeaponStatMgun::attach_Actor(CGameObject* actor)
 			OwnerActor()->setVisible(FALSE);
 		}
 	}
+	FireEnd();
 	return true;
 #else
 	if (Owner())
@@ -629,6 +616,7 @@ void CWeaponStatMgun::detach_Actor()
 		OwnerActor()->setVisible(TRUE);
 	}
 	inheritedHolder::detach_Actor();
+	FireEnd();
 #else
 	Owner()->setVisible(1);
 	inheritedHolder::detach_Actor();
@@ -657,7 +645,7 @@ Fvector CWeaponStatMgun::ExitPosition()
 #ifdef CWEAPONSTATMGUN_CHANGE
 BOOL CWeaponStatMgun::AlwaysTheCrow()
 {
-	return true;
+	return TRUE;
 }
 
 bool CWeaponStatMgun::is_ai_obstacle() const
@@ -665,7 +653,7 @@ bool CWeaponStatMgun::is_ai_obstacle() const
 	return true;
 }
 
-void CWeaponStatMgun::IgnoreCollisionCallback(bool &do_colide, bool bo1, dContact &c, SGameMtl *mt1, SGameMtl *mt2)
+void CWeaponStatMgun::IgnoreOwnerCallback(bool &do_colide, bool bo1, dContact &c, SGameMtl *mt1, SGameMtl *mt2)
 {
 	if (do_colide == false)
 		return;
@@ -704,6 +692,55 @@ bool CWeaponStatMgun::Use(const Fvector &pos, const Fvector &dir, const Fvector 
 		}
 	}
 	return true;
+}
+
+void CWeaponStatMgun::UpdateOwner()
+{
+#ifdef CHOLDERCUSTOM_CHANGE
+	if (Owner()->cast_stalker() && !Owner()->cast_stalker()->g_Alive())
+	{
+		Owner()->cast_stalker()->detach_Holder();
+		return;
+	}
+#endif
+
+	if (OwnerActor() && !OwnerActor()->g_Alive())
+	{
+		OwnerActor()->use_HolderEx(NULL, true);
+		return;
+	}
+
+	if (m_actor_bone != BI_NONE)
+	{
+		IKinematics *K = Visual()->dcast_PKinematics();
+		Owner()->XFORM().set(Fmatrix().mul_43(XFORM(), K->LL_GetTransform(m_actor_bone)));
+	}
+	else
+	{
+		Owner()->XFORM().set(XFORM());
+	}
+
+	if (OwnerActor() && OwnerActor()->IsMyCamera())
+	{
+		cam_Update(Device.fTimeDelta, g_fov);
+		OwnerActor()->Cameras().UpdateFromCamera(Camera());
+		OwnerActor()->Cameras().ApplyDevice(VIEWPORT_NEAR);
+
+		if (IsCameraZoom())
+		{
+			m_destEnemyDir.set(Camera()->Direction());
+			m_turn_default = false;
+		}
+		else
+		{
+			Fvector pos = Camera()->Position();
+			Fvector dir = Camera()->Direction();
+			collide::rq_result &R = HUD().GetCurrentRayQuery();
+			Fvector vec = Fvector().mad(pos, dir, (R.range > 3.f) ? R.range : 30.f);
+			m_destEnemyDir.sub(vec, m_fire_pos).normalize();
+			m_turn_default = false;
+		}
+	}
 }
 
 void CWeaponStatMgun::OnCameraChange(u16 type)
@@ -757,5 +794,12 @@ bool CWeaponStatMgun::InFieldOfView(Fvector pos)
 		return false;
 	}
 	return true;
+}
+
+Fvector CWeaponStatMgun::UserPosition()
+{
+	Fvector vec;
+	XFORM().transform_tiny(vec, m_user_position);
+	return vec;
 }
 #endif

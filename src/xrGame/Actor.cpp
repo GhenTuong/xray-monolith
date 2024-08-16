@@ -841,6 +841,10 @@ void CActor::Die(CObject* who)
 #endif // #ifdef DEBUG
 	inherited::Die(who);
 
+#ifdef CHOLDERCUSTOM_CHANGE
+	use_HolderEx(NULL, true);
+#endif
+
 	if (OnServer())
 	{
 		u16 I = inventory().FirstSlot();

@@ -606,15 +606,7 @@ void CAI_Stalker::Die(CObject* who)
 	inherited::Die(who);
 
 #ifdef CHOLDERCUSTOM_CHANGE
-    if (m_holder)
-    {
-		CWeaponStatMgun *stm = smart_cast<CWeaponStatMgun *>(m_holder);
-		if (stm)
-		{
-			
-		}
-		m_holder = NULL;
-    }
+	detach_Holder();
 #endif
 
 	//запретить использование слотов в инвенторе
@@ -1634,6 +1626,11 @@ void CAI_Stalker::detach_Holder()
 	CWeaponStatMgun *stm = smart_cast<CWeaponStatMgun *>(m_holder);
 	if (stm)
 	{
+		if (animation_movement_controlled())
+		{
+			destroy_anim_mov_ctrl();
+		}
+		ForceTransform(Fmatrix().set(stm->XFORM()).translate_over(stm->UserPosition()));
 		stm->detach_Actor();
 	}
 	m_holder = nullptr;

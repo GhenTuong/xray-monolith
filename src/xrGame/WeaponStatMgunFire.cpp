@@ -116,17 +116,14 @@ void CWeaponStatMgun::UpdateFire()
 
 void CWeaponStatMgun::OnShot()
 {
+#ifdef CWEAPONSTATMGUN_CHANGE
+	if (!Owner())
+		return;
+#else
 	VERIFY(Owner());
+#endif
 
-	FireBullet(
-	m_fire_pos,
-	m_fire_dir,
-	fireDispersionBase,
-	*m_Ammo,
-	Owner()->ID(),
-	ID(),
-	SendHitAllowed(Owner()),
-	::Random.randI(0, 30));
+	FireBullet(m_fire_pos, m_fire_dir, fireDispersionBase, *m_Ammo, Owner()->ID(), ID(), SendHitAllowed(Owner()), ::Random.randI(0, 30));
 
 	StartShotParticles();
 
@@ -137,9 +134,13 @@ void CWeaponStatMgun::OnShot()
 	StartSmokeParticles(m_fire_pos, zero_vel);
 	OnShellDrop(m_fire_pos, zero_vel);
 
+#ifdef CWEAPONSTATMGUN_CHANGE
+	m_sounds.PlaySound("sndShot", m_fire_pos, Owner(), IsCameraZoom());
+#else
 	bool b_hud_mode = (Level().CurrentEntity() == smart_cast<CObject*>(Owner()));
 
 	m_sounds.PlaySound("sndShot", m_fire_pos, Owner(), b_hud_mode);
+#endif
 
 	AddShotEffector();
 	m_dAngle.set(::Random.randF(-fireDispersionBase, fireDispersionBase),
