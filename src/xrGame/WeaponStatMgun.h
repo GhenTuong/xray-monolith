@@ -149,12 +149,17 @@ public:
 private:
 	float m_min_gun_speed;
 	float m_max_gun_speed;
+	u16 m_drop_bone;
 	bool m_turn_default;
 
 	u16 m_actor_bone;
-	u16 m_exit_bone;
+	Fvector m_actor_bone_offset;
+
 	Fvector m_exit_position;
+	Fvector m_exit_position_offset;
 	Fvector m_user_position;
+	Fvector m_user_position_offset;
+
 	u16 m_camera_bone_def;
 	u16 m_camera_bone_aim;
 	float m_zoom_factor_def;

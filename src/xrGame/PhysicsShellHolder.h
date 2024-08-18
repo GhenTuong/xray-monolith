@@ -167,11 +167,11 @@ public:
 		ICobj = (1 << 1),
 		ICnpc = (1 << 2),
 	};
-	u32 m_ignore_collision;
+	u32 m_ignore_collision_flag;
 
 public:
 	static void IgnoreCollisionCallback(bool &do_colide, bool bo1, dContact &c, SGameMtl *material_1, SGameMtl *material_2);
-	void set_ignore_collision();
+	void active_ignore_collision();
 #endif
 };
 

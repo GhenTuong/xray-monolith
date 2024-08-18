@@ -94,9 +94,9 @@ if(dbg_draw_doors)
 #endif
 
 #if 1
-	if (PPhysicsShell() && m_ignore_collision)
+	if (PPhysicsShell() && m_ignore_collision_flag)
 	{
-		CPhysicsShellHolder::set_ignore_collision();
+		CPhysicsShellHolder::active_ignore_collision();
 	}
 #endif
 

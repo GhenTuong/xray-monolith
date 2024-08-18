@@ -8,6 +8,11 @@
 #include "EffectorShot.h"
 #include "Weapon.h"
 
+#ifdef CWEAPONSTATMGUN_CHANGE
+#include "../Include/xrRender/Kinematics.h"
+#include "../xrphysics/PhysicsShell.h"
+#endif
+
 const Fvector& CWeaponStatMgun::get_CurrentFirePoint()
 {
 	return m_fire_pos;
@@ -132,7 +137,16 @@ void CWeaponStatMgun::OnShot()
 
 	StartFlameParticles();
 	StartSmokeParticles(m_fire_pos, zero_vel);
+
+#ifdef CWEAPONSTATMGUN_CHANGE
+	if (m_drop_bone != BI_NONE)
+	{
+		Fvector pos = Visual()->dcast_PKinematics()->LL_GetTransform(m_drop_bone).c;
+		OnShellDrop(pos, zero_vel);
+	}
+#else
 	OnShellDrop(m_fire_pos, zero_vel);
+#endif
 
 #ifdef CWEAPONSTATMGUN_CHANGE
 	m_sounds.PlaySound("sndShot", m_fire_pos, Owner(), IsCameraZoom());

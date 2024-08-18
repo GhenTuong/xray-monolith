@@ -67,12 +67,16 @@ CWeaponStatMgun::CWeaponStatMgun()
 #ifdef CWEAPONSTATMGUN_CHANGE
 	m_min_gun_speed = 0.0F;
 	m_max_gun_speed = 0.0F;
+	m_drop_bone = BI_NONE;
 	m_turn_default = true;
 
 	m_actor_bone = BI_NONE;
-	m_exit_bone = BI_NONE;
+	m_actor_bone_offset.set(0, 0, 0);
+
 	m_exit_position.set(0, 0, 0);
+	m_exit_position_offset.set(0, 0, 0);
 	m_user_position.set(0, 0, 0);
+	m_user_position_offset.set(0, 0, 0);
 
 	m_camera_bone_def = BI_NONE;
 	m_camera_bone_aim = BI_NONE;
@@ -208,14 +212,17 @@ BOOL CWeaponStatMgun::net_Spawn(CSE_Abstract* DC)
 
 #ifdef CWEAPONSTATMGUN_CHANGE
 	CInifile *ini = K->LL_UserData();
-
 	m_min_gun_speed = deg2rad(READ_IF_EXISTS(ini, r_float, "mounted_weapon_definition", "min_gun_speed", 20.0F));
 	m_max_gun_speed = deg2rad(READ_IF_EXISTS(ini, r_float, "mounted_weapon_definition", "max_gun_speed", 20.0F));
+	m_drop_bone = ini->line_exist("config", "drop_bone") ? K->LL_BoneID(ini->r_string("config", "drop_bone")) : BI_NONE;
 
 	m_actor_bone = ini->line_exist("config", "actor_bone") ? K->LL_BoneID(ini->r_string("config", "actor_bone")) : BI_NONE;
-	m_exit_bone = ini->line_exist("config", "exit_bone") ? K->LL_BoneID(ini->r_string("config", "exit_bone")) : BI_NONE;
+	m_actor_bone_offset = READ_IF_EXISTS(pSettings, r_fvector3, cNameSect_str(), "actor_bone_offset", Fvector().set(0, 0, 0));
+
 	m_exit_position = READ_IF_EXISTS(ini, r_fvector3, "config", "exit_position", Fvector().set(0, 0, 0));
+	m_exit_position_offset = READ_IF_EXISTS(pSettings, r_fvector3, cNameSect_str(), "exit_position_offset", Fvector().set(0, 0, 0));
 	m_user_position = READ_IF_EXISTS(ini, r_fvector3, "config", "user_position", Fvector().set(0, 0, 0));
+	m_user_position_offset = READ_IF_EXISTS(pSettings, r_fvector3, cNameSect_str(), "user_position_offset", Fvector().set(0, 0, 0));
 
 	m_camera_bone_def = ini->line_exist("config", "camera_bone_def") ? K->LL_BoneID(ini->r_string("config", "camera_bone_def")) : BI_NONE;
 	m_camera_bone_aim = ini->line_exist("config", "camera_bone_aim") ? K->LL_BoneID(ini->r_string("config", "camera_bone_aim")) : BI_NONE;
@@ -245,6 +252,13 @@ BOOL CWeaponStatMgun::net_Spawn(CSE_Abstract* DC)
 	PPhysicsShell()->Enable();
 	PPhysicsShell()->add_ObjectContactCallback(IgnoreOwnerCallback);
 	SetBoneCallbacks();
+#endif
+
+#if 1
+	if (PPhysicsShell() && m_ignore_collision_flag)
+	{
+		CPhysicsShellHolder::active_ignore_collision();
+	}
 #endif
 
 	return TRUE;
@@ -627,12 +641,9 @@ void CWeaponStatMgun::detach_Actor()
 Fvector CWeaponStatMgun::ExitPosition()
 {
 #ifdef CWEAPONSTATMGUN_CHANGE
-	Fvector pos;
-	pos.set(0.0F, 0.0F, 0.0F);
-	IKinematics *K = Visual()->dcast_PKinematics();
-	Fmatrix xform = K->LL_GetTransform(m_actor_bone);
-	XFORM().transform_tiny(pos, xform.c);
-	return pos;
+	Fvector vec;
+	XFORM().transform_tiny(vec, Fvector().add(m_exit_position, m_exit_position_offset));
+	return vec;
 #else
 	Fvector pos; pos.set(0.f, 0.f, 0.f);
 	pos.sub(camera->Direction()).normalize();
@@ -714,10 +725,13 @@ void CWeaponStatMgun::UpdateOwner()
 	if (m_actor_bone != BI_NONE)
 	{
 		IKinematics *K = Visual()->dcast_PKinematics();
-		Owner()->XFORM().set(Fmatrix().mul_43(XFORM(), K->LL_GetTransform(m_actor_bone)));
+		Fmatrix xform = Fmatrix(K->LL_GetTransform(m_actor_bone));
+		xform.c.add(m_actor_bone_offset);
+		Owner()->XFORM().set(Fmatrix().mul_43(XFORM(), xform));
 	}
 	else
 	{
+		/* Shouldn't let this happen. It indicates no actor bone. Should fix. */
 		Owner()->XFORM().set(XFORM());
 	}
 
@@ -800,7 +814,7 @@ bool CWeaponStatMgun::InFieldOfView(Fvector pos)
 Fvector CWeaponStatMgun::UserPosition()
 {
 	Fvector vec;
-	XFORM().transform_tiny(vec, m_user_position);
+	XFORM().transform_tiny(vec, Fvector().add(m_user_position, m_user_position_offset));
 	return vec;
 }
 #endif

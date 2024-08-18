@@ -123,21 +123,21 @@ BOOL CPhysicsShellHolder::net_Spawn(CSE_Abstract* DC)
 	}
 
 #if 1
-	m_ignore_collision = 0;
+	m_ignore_collision_flag = 0;
 	if (pSettings->line_exist(cNameSect(), "ignore_collision"))
 	{
 		LPCSTR tmp = pSettings->r_string(cNameSect(), "ignore_collision");
 		if (strstr(tmp, "map"))
 		{
-			m_ignore_collision = m_ignore_collision | ICmap;
+			m_ignore_collision_flag = m_ignore_collision_flag | ICmap;
 		}
 		if (strstr(tmp, "obj"))
 		{
-			m_ignore_collision = m_ignore_collision | ICobj;
+			m_ignore_collision_flag = m_ignore_collision_flag | ICobj;
 		}
 		if (strstr(tmp, "npc"))
 		{
-			m_ignore_collision = m_ignore_collision | ICnpc;
+			m_ignore_collision_flag = m_ignore_collision_flag | ICnpc;
 		}
 	}
 #endif
@@ -178,7 +178,7 @@ void CPhysicsShellHolder::init()
 	b_sheduled = false;
 
 #if 1
-	m_ignore_collision = 0;
+	m_ignore_collision_flag = 0;
 #endif
 }
 
@@ -693,7 +693,7 @@ void CPhysicsShellHolder::IgnoreCollisionCallback(bool &do_colide, bool bo1, dCo
 
 	if (who == NULL)
 	{
-		if (a->m_ignore_collision & a->ICmap)
+		if (a->m_ignore_collision_flag & a->ICmap)
 		{
 			do_colide = false;
 		}
@@ -705,7 +705,7 @@ void CPhysicsShellHolder::IgnoreCollisionCallback(bool &do_colide, bool bo1, dCo
 	{
 		if (b->cast_actor() || b->cast_custom_monster())
 		{
-			if (a->m_ignore_collision & a->ICnpc)
+			if (a->m_ignore_collision_flag & a->ICnpc)
 			{
 				do_colide = false;
 				return;
@@ -713,9 +713,9 @@ void CPhysicsShellHolder::IgnoreCollisionCallback(bool &do_colide, bool bo1, dCo
 		}
 		else
 		{
-			if (a->m_ignore_collision & a->ICobj)
+			if (a->m_ignore_collision_flag & a->ICobj)
 			{
-				if (b->m_ignore_collision & b->ICobj)
+				if (b->m_ignore_collision_flag & b->ICobj)
 				{
 					do_colide = false;
 					return;
@@ -725,7 +725,7 @@ void CPhysicsShellHolder::IgnoreCollisionCallback(bool &do_colide, bool bo1, dCo
 	}
 }
 
-void CPhysicsShellHolder::set_ignore_collision()
+void CPhysicsShellHolder::active_ignore_collision()
 {
 	R_ASSERT(PPhysicsShell());
 	PPhysicsShell()->remove_ObjectContactCallback(IgnoreCollisionCallback);
