@@ -15,6 +15,11 @@
 //50fps fixed
 float STEP = 0.02f;
 
+#ifdef CHELICOPTER_CHANGE
+#include "../xrphysics/IPHWorld.h"
+#include "../xrphysics/PhysicsCommon.h"
+#endif
+
 CHelicopter::CHelicopter()
 {
 	m_pParticle = NULL;
@@ -26,6 +31,22 @@ CHelicopter::CHelicopter()
 
 	m_movement.parent = this;
 	m_body.parent = this;
+
+#ifdef CHELICOPTER_CHANGE
+	m_control_ele = eCtrEle_NA;
+	m_control_yaw = eCtrYaw_NA;
+	m_control_pit = eCtrPit_NA;
+	m_control_rol = eCtrRol_NA;
+
+	m_control_ele_scale = 1.0F;
+	m_control_yaw_scale = 1.0F;
+	m_control_pit_scale = 1.0F;
+	m_control_rol_scale = 1.0F;
+
+	bone_map = BONE_P_MAP();
+	m_rotor_manager = NULL;
+	m_body_bone = BI_NONE;
+#endif
 }
 
 CHelicopter::~CHelicopter(){}
@@ -33,6 +54,11 @@ CHelicopter::~CHelicopter(){}
 void CHelicopter::setState(CHelicopter::EHeliState s)
 {
 	m_curState = s;
+
+#ifdef CHELICOPTER_CHANGE
+	bone_map.clear();
+	xr_delete(m_rotor_manager);
+#endif
 }
 
 
@@ -121,12 +147,27 @@ void CHelicopter::Load(LPCSTR section)
 	m_light_color.mul_rgb(m_light_brightness);
 	LPCSTR lanim = pSettings->r_string(section, "light_color_animmator");
 	m_lanim = LALib.FindItem(lanim);
+
+#ifdef CHELICOPTER_CHANGE
+	m_drone_flag = !!READ_IF_EXISTS(pSettings, r_bool, section, "is_drone", false);
+	m_control_ele_scale = READ_IF_EXISTS(pSettings, r_float, section, "control_ele_scale", 1.0F);
+	m_control_yaw_scale = READ_IF_EXISTS(pSettings, r_float, section, "control_yaw_scale", 1.0F);
+	m_control_pit_scale = READ_IF_EXISTS(pSettings, r_float, section, "control_pit_scale", 1.0F);
+	m_control_rol_scale = READ_IF_EXISTS(pSettings, r_float, section, "control_rol_scale", 1.0F);
+#endif
 }
 
 void CHelicopter::reload(LPCSTR section)
 {
 	inherited::reload(section);
 }
+
+#ifdef CHELICOPTER_CHANGE
+void CollisionCallbackEnable(bool &do_colide, bool bo1, dContact &c, SGameMtl *material_1, SGameMtl *material_2)
+{
+	do_colide = true;
+}
+#endif
 
 void CollisionCallbackAlife(bool& do_colide, bool bo1, dContact& c, SGameMtl* material_1, SGameMtl* material_2)
 {
@@ -176,6 +217,24 @@ BOOL CHelicopter::net_Spawn(CSE_Abstract* DC)
 	CExplosive::Load(pUserData, "explosion");
 	CExplosive::SetInitiator(ID());
 
+#ifdef CHELICOPTER_CHANGE
+	{
+		LPCSTR s = READ_IF_EXISTS(pUserData, r_string, "helicopter_definition", "hit_section", NULL);
+		if (s && strlen(s) && pUserData->section_exist(s))
+		{
+			int lc = pUserData->line_count(s);
+			LPCSTR name;
+			LPCSTR value;
+			s16 boneID;
+			for (int i = 0; i < lc; ++i)
+			{
+				pUserData->r_line(s, i, &name, &value);
+				boneID = K->LL_BoneID(name);
+				m_hitBones.insert(std::make_pair(boneID, (float)atof(value)));
+			}
+		}
+	}
+#else
 	LPCSTR s = pUserData->r_string("helicopter_definition", "hit_section");
 
 	if (pUserData->section_exist(s))
@@ -191,6 +250,7 @@ BOOL CHelicopter::net_Spawn(CSE_Abstract* DC)
 			m_hitBones.insert(std::make_pair(boneID, (float)atof(value)));
 		}
 	}
+#endif
 
 	CBoneInstance& biX = smart_cast<IKinematics*>(Visual())->LL_GetBoneInstance(m_rotate_x_bone);
 	biX.set_callback(bctCustom, BoneMGunCallbackX, this);
@@ -219,11 +279,26 @@ BOOL CHelicopter::net_Spawn(CSE_Abstract* DC)
 		K->CalculateBones(TRUE);
 	}
 
+#ifdef CHELICOPTER_CHANGE
+	{
+		LPCSTR s = READ_IF_EXISTS(pUserData, r_string, "helicopter_definition", "engine_sound", NULL);
+		if (s && strlen(s))
+		{
+			m_engineSound.create(s, st_Effect, sg_SourceType);
+			m_engineSound.play_at_pos(0, XFORM().c, sm_Looped);
+		}
+		else
+		{
+			m_engineSound.create(*heli->engine_sound, st_Effect, sg_SourceType);
+			m_engineSound.play_at_pos(0, XFORM().c, sm_Looped);
+		}
+	}
+#else
 	m_engineSound.create(*heli->engine_sound, st_Effect, sg_SourceType);
 	m_engineSound.play_at_pos(0, XFORM().c, sm_Looped);
+#endif
 
 	CShootingObject::Light_Create();
-
 
 	setVisible(TRUE);
 	setEnabled(TRUE);
@@ -246,6 +321,12 @@ BOOL CHelicopter::net_Spawn(CSE_Abstract* DC)
 	Device.seqRender.Add(this,REG_PRIORITY_LOW-1);
 #endif
 
+#ifdef CHELICOPTER_CHANGE
+	Msg("%s:%d", __FUNCTION__, __LINE__);
+	m_rotor_manager = xr_new<SHeliRotor>(this);
+	m_body_bone = pUserData->line_exist("helicopter_definition", "body_bone") ? K->LL_BoneID(pUserData->r_string("helicopter_definition", "body_bone")) : BI_NONE;
+#endif
+
 	return TRUE;
 }
 
@@ -265,10 +346,101 @@ void CHelicopter::net_Destroy()
 #ifdef DEBUG
 	Device.seqRender.Remove(this);
 #endif
+
+#ifdef CHELICOPTER_CHANGE
+	CPHUpdateObject::Deactivate();
+#endif
 }
 
 void CHelicopter::SpawnInitPhysics(CSE_Abstract* D)
 {
+#ifdef CHELICOPTER_CHANGE
+	if (IsDrone())
+	{
+		if (!Visual())
+			return;
+		IRenderVisual *V = Visual();
+		IKinematics *K = V->dcast_PKinematics();
+		CInifile *ini = K->LL_UserData();
+
+		Msg("%s:%d", __FUNCTION__, __LINE__);
+		{
+			bone_map.clear();
+			auto i = K->LL_Bones()->begin();
+			auto e = K->LL_Bones()->end();
+			for (; i != e; ++i)
+			{
+				if (bone_map.find(i->second) == bone_map.end())
+				{
+					bone_map.insert(std::make_pair(i->second, physicsBone()));
+				}
+			}
+		}
+		m_pPhysicsShell = P_build_Shell(this, false, &bone_map);
+		m_pPhysicsShell->SetPrefereExactIntegration();
+		ApplySpawnIniToPhysicShell(&D->spawn_ini(), m_pPhysicsShell, false);
+		ApplySpawnIniToPhysicShell(ini, m_pPhysicsShell, false);
+
+		if (ini->section_exist("air_resistance"))
+		{
+			m_pPhysicsShell->SetAirResistance(default_k_l * ini->r_float("air_resistance", "linear_factor"), default_k_w * ini->r_float("air_resistance", "angular_factor"));
+		}
+		m_pPhysicsShell->set_DynamicScales(1.f, 1.f);
+		m_pPhysicsShell->EnabledCallbacks(TRUE);
+
+		SAllDDOParams disable_params;
+		disable_params.Load(ini);
+		m_pPhysicsShell->set_DisableParams(disable_params);
+#if 0
+		{
+			auto i = bone_map.begin();
+			auto e = bone_map.end();
+			for (; i != e; ++i)
+			{
+				if (i->second.element)
+				{
+					LPCSTR b_name = K->LL_BoneName_dbg(i->second.element->m_SelfID);
+					if (ini->section_exist(b_name))
+					{
+						Msg("%s:%d %s", __FUNCTION__, __LINE__, b_name);
+						if (ini->line_exist(b_name, "linear_factor") && ini->line_exist(b_name, "angular_factor"))
+						{
+							float linear_factor = default_k_l * ini->r_float(b_name, "linear_factor");
+							float angular_factor = default_k_w * ini->r_float(b_name, "angular_factor");
+							i->second.element->SetAirResistance(linear_factor, angular_factor);
+						}
+						if (ini->line_exist(b_name, "linear_limit") && ini->line_exist(b_name, "angular_limit"))
+						{
+							float linear_limit = default_l_limit * ini->r_float(b_name, "linear_limit");
+							float angular_limit = default_w_limit * ini->r_float(b_name, "angular_limit");
+							i->second.element->set_DynamicLimits(linear_limit, angular_limit);
+						}
+						if (ini->line_exist(b_name, "linear_scale") && ini->line_exist(b_name, "angular_scale"))
+						{
+							float linear_scale = 1.01f * ini->r_float(b_name, "linear_scale");
+							float angular_scale = 1.01f * ini->r_float(b_name, "angular_scale");
+							i->second.element->set_DynamicScales(linear_scale, angular_scale);
+						}
+						if (ini->line_exist(b_name, "apply_by_gravity"))
+						{
+							i->second.element->set_ApplyByGravity(ini->r_bool(b_name, "apply_by_gravity"));
+						}
+					}
+				}
+			}
+		}
+#endif
+		K->CalculateBones_Invalidate();
+		K->CalculateBones(TRUE);
+		m_pPhysicsShell->Activate();
+		CPHUpdateObject::Activate();
+
+		//PPhysicsShell()->set_ObjectContactCallback(CollisionCallbackEnable);
+		//PPhysicsShell()->set_ContactCallback(ContactCallbackAlife);
+		return;
+	}
+#endif
+
 	PPhysicsShell() = P_build_Shell(this, false);
 	if (g_Alive())
 	{
@@ -313,8 +485,22 @@ void CHelicopter::MoveStep()
 			                                     -m_movement.LinearAcc_bk);
 
 
+#ifdef CHELICOPTER_CHANGE
+		if (fis_zero(m_movement.curLinearSpeed, EPS))
+		{
+			/* Snap instantly to desired direction from a stationary state. */
+			m_movement.currPathH = desired_H;
+			m_movement.currPathP = desired_P;
+		}
+		else
+		{
+			angle_lerp(m_movement.currPathH, desired_H, m_movement.GetAngSpeedHeading(m_movement.curLinearSpeed), STEP);
+			angle_lerp(m_movement.currPathP, desired_P, m_movement.GetAngSpeedPitch(m_movement.curLinearSpeed), STEP);
+		}
+#else
 		angle_lerp(m_movement.currPathH, desired_H, m_movement.GetAngSpeedHeading(m_movement.curLinearSpeed), STEP);
 		angle_lerp(m_movement.currPathP, desired_P, m_movement.GetAngSpeedPitch(m_movement.curLinearSpeed), STEP);
+#endif
 
 		dir.setHP(m_movement.currPathH, m_movement.currPathP);
 
@@ -391,6 +577,34 @@ void CHelicopter::UpdateCL()
 {
 	inherited::UpdateCL();
 	CExplosive::UpdateCL();
+
+#ifdef CHELICOPTER_CHANGE
+	if (IsDrone())
+	{
+		if (!PPhysicsShell())
+			return;
+
+		PPhysicsShell()->InterpolateGlobalTransform(&XFORM());
+		Visual()->dcast_PKinematics()->CalculateBones();
+
+		if (state() == CHelicopter::eDead)
+		{
+			if (m_brokenSound._feedback())
+				m_brokenSound.set_position(XFORM().c);
+		}
+		else
+		{
+			if (m_engineSound._feedback())
+				m_engineSound.set_position(XFORM().c);
+
+			m_enemy.Update();
+			UpdateWeapons();
+		}
+		UpdateHeliParticles();
+		return;
+	}
+#endif
+
 	if (PPhysicsShell() && (state() == CHelicopter::eDead))
 	{
 		PPhysicsShell()->InterpolateGlobalTransform(&XFORM());
@@ -517,3 +731,126 @@ void CHelicopter::net_Relcase(CObject* O)
 	CExplosive::net_Relcase(O);
 	inherited::net_Relcase(O);
 }
+
+#ifdef CHELICOPTER_CHANGE
+void CHelicopter::PhDataUpdate(float step)
+{
+	if (m_pPhysicsShell == NULL)
+		return;
+
+	if (IsDrone())
+	{
+		if (m_rotor_manager)
+		{
+			m_rotor_manager->PhDataUpdate(step);
+		}
+
+		CPhysicsElement *E = (m_body_bone != BI_NONE) ? bone_map.find(m_body_bone)->second.element : NULL;
+		if (E == NULL)
+			return;
+
+		Fvector velocity;
+		m_pPhysicsShell->get_LinearVel(velocity);
+		XFORM().transform_dir(velocity);
+
+		switch (m_control_ele)
+		{
+		case eCtrEle_NA:
+		{
+			if (velocity.y < -EPS_L || EPS_L < velocity.y)
+			{
+				float force = -__min(velocity.y, m_control_ele_scale) * PPhysicsShell()->getMass();
+				Fvector vec = Fvector().set(0.0F, 1.0F, 0.0F);
+				XFORM().transform_dir(vec);
+				E->applyForce(vec.normalize(), force);
+			}
+			break;
+		}
+		case eCtrEle_UP:
+		case eCtrEle_DW:
+		{
+			float force = m_control_ele_scale * PPhysicsShell()->getMass();
+			Fvector vec = Fvector().set(0.0F, 1.0F, 0.0F);
+			XFORM().transform_dir(vec);
+			E->applyForce(vec.normalize(), (m_control_ele == eCtrEle_UP) ? force : -force);
+			break;
+		}
+		}
+
+		Fvector angular;
+		E->get_AngularVel(angular);
+
+		switch (m_control_yaw)
+		{
+		case eCtrYaw_NA:
+		{
+			if (angular.y < -EPS_L || EPS_L < angular.y)
+			{
+				float force = -__min(angular.y, m_control_yaw_scale) * PPhysicsShell()->getMass();
+				Fvector vec = Fvector().set(0.0F, 1.0F, 0.0F);
+				XFORM().transform_dir(vec);
+				E->applyTorque(vec.normalize(), force);
+			}
+			break;
+		}
+		case eCtrYaw_RS:
+		case eCtrYaw_LS:
+		{
+			float force = m_control_yaw_scale * PPhysicsShell()->getMass();
+			Fvector vec = Fvector().set(0.0F, 1.0F, 0.0F);
+			XFORM().transform_dir(vec);
+			E->applyTorque(vec.normalize(), (m_control_yaw == eCtrYaw_RS) ? force : -force);
+			break;
+		}
+		}
+
+		switch (m_control_pit)
+		{
+		case eCtrPit_NA:
+		{
+			if (velocity.z < -EPS_L || EPS_L < velocity.z)
+			{
+				float force = -__min(velocity.z, m_control_pit_scale) * PPhysicsShell()->getMass();
+				Fvector vec = Fvector().set(0.0F, 0.0F, 1.0F);
+				XFORM().transform_dir(vec);
+				E->applyForce(vec.normalize(), force);
+			}
+			break;
+		}
+		case eCtrPit_FS:
+		case eCtrPit_BS:
+		{
+			float force = m_control_pit_scale * PPhysicsShell()->getMass();
+			Fvector vec = Fvector().set(0.0F, 0.0F, 1.0F);
+			XFORM().transform_dir(vec);
+			E->applyForce(vec.normalize(), (m_control_pit == eCtrPit_FS) ? force : -force);
+			break;
+		}
+		}
+
+		switch (m_control_rol)
+		{
+		case eCtrRol_NA:
+		{
+			if (velocity.x < -EPS_L || EPS_L < velocity.x)
+			{
+				float force = -__min(velocity.x, m_control_rol_scale) * PPhysicsShell()->getMass();
+				Fvector vec = Fvector().set(1.0F, 0.0F, 0.0F);
+				XFORM().transform_dir(vec);
+				E->applyForce(vec.normalize(), force);
+			}
+			break;
+		}
+		case eCtrRol_RS:
+		case eCtrRol_LS:
+		{
+			float force = m_control_rol_scale * PPhysicsShell()->getMass();
+			Fvector vec = Fvector().set(1.0F, 0.0F, 0.0F);
+			XFORM().transform_dir(vec);
+			E->applyForce(vec.normalize(), (m_control_rol == eCtrRol_RS) ? force : -force);
+			break;
+		}
+		}
+	}
+}
+#endif

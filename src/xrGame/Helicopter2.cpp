@@ -491,3 +491,115 @@ float GetCurrAcc(float V0, float V1, float dist, float a0, float a1)
 	t0 = t_0(V0, V1, a0, a1, t1);
 	return getA(t0, a1, a0);
 }
+
+
+
+
+
+#ifdef CHELICOPTER_CHANGE
+SHeliRotor::SHeliRotor(CHelicopter *H)
+{
+	parent = H;
+	IKinematics *K = parent->Visual()->dcast_PKinematics();
+	CInifile *ini = K->LL_UserData();
+
+	LPCSTR str = READ_IF_EXISTS(ini, r_string, "helicopter_definition", "rotor_bone", NULL);
+	if (str && strlen(str))
+	{
+		string64 bone_name;
+		int n = _GetItemCount(str);
+		for (int k = 0; k < n; ++k)
+		{
+			memset(bone_name, 0, sizeof(bone_name));
+			_GetItem(str, k, bone_name);
+			u16 bone_id = (strlen(bone_name)) ? K->LL_BoneID(bone_name) : BI_NONE;
+			if (bone_id != BI_NONE)
+			{
+				m_rotor.insert(mk_pair(bone_id, parent->bone_map.find(bone_id)->second.element));
+			}
+		}
+	}
+
+	m_scale = 1.0f;
+}
+
+SHeliRotor::~SHeliRotor()
+{
+	m_rotor.clear();
+}
+
+void SHeliRotor::PhDataUpdate(float step)
+{
+	if (m_scale > 0)
+	{
+		if (m_rotor.size() > 0)
+		{
+			auto i = m_rotor.begin();
+			auto e = m_rotor.end();
+			for (; i != e; ++i)
+			{
+				if (i->second)
+				{
+					float force = m_scale * parent->PPhysicsShell()->getMass() * parent->EffectiveGravity();
+					Fvector vec = Fvector().set(0.0F, 1.0F, 0.0F);
+#if 0
+					parent->XFORM().transform_dir(vec);
+					vec.normalize();
+#endif
+					// Msg("m=%f g=%f | %f,%f,%f", parent->PPhysicsShell()->getMass(), parent->EffectiveGravity(), vec.x, vec.y, vec.z);
+					i->second->applyForce(vec, force / m_rotor.size());
+				}
+			}
+#if 0
+			float force = parent->m_pPhysicsShell->getMass() * parent->EffectiveGravity();
+			Fvector vec = Fvector().set(1.0F, 0.0F, 0.0F);
+			parent->XFORM().transform_dir(vec);
+			vec.normalize();
+			parent->m_pPhysicsShell->applyTorque(vec, force);
+#endif
+
+#if 1
+			float kp = parent->XFORM().k.getP();
+			if (kp < -EPS_L)
+			{
+				float force = parent->m_pPhysicsShell->getMass() * parent->EffectiveGravity() * 0.5 * _abs(kp) / PI_DIV_2;
+				Fvector vec = Fvector().set(1.0F, 0.0F, 0.0F);
+				parent->XFORM().transform_dir(vec);
+				vec.normalize();
+				//Msg("m=%f g=%f k=%f | %f,%f,%f", parent->PPhysicsShell()->getMass(), parent->EffectiveGravity(), kp, vec.x, vec.y, vec.z);
+				parent->m_pPhysicsShell->applyTorque(vec, -force);
+			}
+			if (kp > EPS_L)
+			{
+				float force = parent->m_pPhysicsShell->getMass() * parent->EffectiveGravity() * 0.5 * _abs(kp) / PI_DIV_2;
+				Fvector vec = Fvector().set(1.0F, 0.0F, 0.0F);
+				parent->XFORM().transform_dir(vec);
+				vec.normalize();
+				//Msg("m=%f g=%f k=%f | %f,%f,%f", parent->PPhysicsShell()->getMass(), parent->EffectiveGravity(), kp, vec.x, vec.y, vec.z);
+				parent->m_pPhysicsShell->applyTorque(vec, force);
+			}
+
+			float ip = parent->XFORM().i.getP();
+			if (ip < -EPS_L)
+			{
+				float force = parent->m_pPhysicsShell->getMass() * parent->EffectiveGravity() * 0.5 * _abs(ip) / PI_DIV_2;
+				Fvector vec = Fvector().set(0.0F, 0.0F, 1.0F);
+				parent->XFORM().transform_dir(vec);
+				vec.normalize();
+				//Msg("m=%f g=%f i=%f | %f,%f,%f", parent->PPhysicsShell()->getMass(), parent->EffectiveGravity(), ip, vec.x, vec.y, vec.z);
+				parent->m_pPhysicsShell->applyTorque(vec, -force);
+			}
+			if (ip > EPS_L)
+			{
+				float force = parent->m_pPhysicsShell->getMass() * parent->EffectiveGravity() * fixed_step * _abs(ip) / PI_DIV_2;
+				Fvector vec = Fvector().set(0.0F, 0.0F, 1.0F);
+				parent->XFORM().transform_dir(vec);
+				vec.normalize();
+				//Msg("m=%f g=%f i=%f | %f,%f,%f", parent->PPhysicsShell()->getMass(), parent->EffectiveGravity(), ip, vec.x, vec.y, vec.z);
+				parent->m_pPhysicsShell->applyTorque(vec, force);
+			}
+#endif
+		}
+	}
+}
+#endif

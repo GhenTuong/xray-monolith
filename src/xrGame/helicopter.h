@@ -14,6 +14,17 @@
 #include "PHDestroyable.h"
 #include "Explosive.h"
 
+#ifndef CHELICOPTER_CHANGE
+#define CHELICOPTER_CHANGE
+#endif
+
+#ifdef CHELICOPTER_CHANGE
+#include "stdafx.h"
+#include "../xrphysics/PhysicsShell.h"
+#include "../xrphysics/PHUpdateObject.h"
+class CPHElement;
+#endif
+
 class CScriptGameObject;
 class CLAItem;
 class CHelicopterMovManager;
@@ -138,7 +149,23 @@ public:
 	void net_Destroy();
 };
 
+#ifdef CHELICOPTER_CHANGE
+struct SHeliRotor
+{
+	CHelicopter *parent;
+	xr_map<u16, CPhysicsElement *> m_rotor;
+	float m_scale;
+
+	SHeliRotor(CHelicopter *H);
+	~SHeliRotor();
+	void PhDataUpdate(float step);
+};
+#endif
+
 class CHelicopter : public CEntity,
+#ifdef CHELICOPTER_CHANGE
+					public CPHUpdateObject,
+#endif
                     public CShootingObject,
                     public CRocketLauncher,
                     public CPHSkeleton,
@@ -147,6 +174,8 @@ class CHelicopter : public CEntity,
                     public CExplosive
 #ifdef DEBUG
 						,public pureRender
+#endif
+#ifdef CHELICOPTER_CHANGE
 #endif
 
 {
@@ -375,6 +404,78 @@ public:
 #ifdef DEBUG
 public:
 	virtual void			OnRender						();
+#endif
+
+#ifdef CHELICOPTER_CHANGE
+private:
+	virtual void PhDataUpdate(float step);
+	virtual void PhTune(float step) {};
+
+protected:
+	bool m_drone_flag;
+	u16 m_body_bone;
+
+	SHeliRotor *m_rotor_manager;
+
+	u16 m_control_ele; /* Elevating */
+	u16 m_control_yaw; /* Yaw */
+	u16 m_control_pit; /* Pitch */
+	u16 m_control_rol; /* Roll */
+
+	float m_control_ele_scale;
+	float m_control_yaw_scale;
+	float m_control_pit_scale;
+	float m_control_rol_scale;
+
+public:
+	enum eCtrEle
+	{
+		eCtrEle_NA = 0,
+		eCtrEle_UP,
+		eCtrEle_DW,
+	};
+	enum eCtrYaw
+	{
+		eCtrYaw_NA = 0,
+		eCtrYaw_RS,
+		eCtrYaw_LS,
+	};
+	enum eCtrPit
+	{
+		eCtrPit_NA = 0,
+		eCtrPit_FS,
+		eCtrPit_BS,
+	};
+	enum eCtrRol
+	{
+		eCtrRol_NA = 0,
+		eCtrRol_RS,
+		eCtrRol_LS,
+	};
+
+	u16 GetControlEle() { return m_control_ele; };
+	u16 GetControlYaw() { return m_control_yaw; };
+	u16 GetControlPit() { return m_control_pit; };
+	u16 GetControlRol() { return m_control_rol; };
+	void SetControlEle(u16 val) { m_control_ele = val; };
+	void SetControlYaw(u16 val) { m_control_yaw = val; };
+	void SetControlPit(u16 val) { m_control_pit = val; };
+	void SetControlRol(u16 val) { m_control_rol = val; };
+
+	float GetControlEleScale() { return m_control_ele_scale; };
+	float GetControlYawScale() { return m_control_yaw_scale; };
+	float GetControlPitScale() { return m_control_pit_scale; };
+	float GetControlRolScale() { return m_control_rol_scale; };
+	void SetControlEleScale(float val) { m_control_ele_scale = val; };
+	void SetControlYawScale(float val) { m_control_yaw_scale = val; };
+	void SetControlPitScale(float val) { m_control_pit_scale = val; };
+	void SetControlRolScale(float val) { m_control_rol_scale = val; };
+
+	BONE_P_MAP bone_map;
+
+	virtual BOOL AlwaysTheCrow() { return TRUE; }
+	bool IsDrone() { return m_drone_flag; }
+
 #endif
 
 DECLARE_SCRIPT_REGISTER_FUNCTION

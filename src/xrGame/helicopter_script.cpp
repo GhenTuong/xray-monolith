@@ -113,5 +113,41 @@ void CHelicopter::script_register(lua_State* L)
 
 		//				.def_readwrite("", &CHelicopter::)
 
+#ifdef CHELICOPTER_CHANGE
+		.enum_("move_control")
+		[
+			value("eCtrEle_NA", u16(CHelicopter::eCtrEle_NA)),
+			value("eCtrEle_UP", u16(CHelicopter::eCtrEle_UP)),
+			value("eCtrEle_DW", u16(CHelicopter::eCtrEle_DW)),
+			value("eCtrYaw_NA", u16(CHelicopter::eCtrYaw_NA)),
+			value("eCtrYaw_RS", u16(CHelicopter::eCtrYaw_RS)),
+			value("eCtrYaw_LS", u16(CHelicopter::eCtrYaw_LS)),
+			value("eCtrPit_NA", u16(CHelicopter::eCtrPit_NA)),
+			value("eCtrPit_FS", u16(CHelicopter::eCtrPit_FS)),
+			value("eCtrPit_BS", u16(CHelicopter::eCtrPit_BS)),
+			value("eCtrRol_NA", u16(CHelicopter::eCtrRol_NA)),
+			value("eCtrRol_RS", u16(CHelicopter::eCtrRol_RS)),
+			value("eCtrRol_LS", u16(CHelicopter::eCtrRol_LS))
+		]
+
+		.def("GetControlEle", &CHelicopter::GetControlEle)
+		.def("GetControlYaw", &CHelicopter::GetControlYaw)
+		.def("GetControlPit", &CHelicopter::GetControlPit)
+		.def("GetControlRol", &CHelicopter::GetControlRol)
+		.def("SetControlEle", &CHelicopter::SetControlEle)
+		.def("SetControlYaw", &CHelicopter::SetControlYaw)
+		.def("SetControlPit", &CHelicopter::SetControlPit)
+		.def("SetControlRol", &CHelicopter::SetControlRol)
+
+		.def("GetControlEleScale", &CHelicopter::GetControlEleScale)
+		.def("GetControlYawScale", &CHelicopter::GetControlYawScale)
+		.def("GetControlPitScale", &CHelicopter::GetControlPitScale)
+		.def("GetControlRolScale", &CHelicopter::GetControlRolScale)
+		.def("SetControlEleScale", &CHelicopter::SetControlEleScale)
+		.def("SetControlYawScale", &CHelicopter::SetControlYawScale)
+		.def("SetControlPitScale", &CHelicopter::SetControlPitScale)
+		.def("SetControlRolScale", &CHelicopter::SetControlRolScale)
+
+#endif
 	];
 }
