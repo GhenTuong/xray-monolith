@@ -10,6 +10,7 @@
 #include "PHDestroyable.h"
 #include "Car.h"
 #include "WeaponStatMgun.h"
+#include "helicopter.h"
 #include "xrserver_objects_alife_monsters.h"
 #include "CameraLook.h"
 #include "CameraFirstEye.h"
@@ -836,14 +837,14 @@ extern BOOL firstPersonDeath;
 
 void CActor::Die(CObject* who)
 {
+#ifdef CHOLDERCUSTOM_CHANGE
+	use_HolderEx(NULL, true);
+#endif
+
 #ifdef DEBUG
     Msg("--- Actor [%s] dies !", this->Name());
 #endif // #ifdef DEBUG
 	inherited::Die(who);
-
-#ifdef CHOLDERCUSTOM_CHANGE
-	use_HolderEx(NULL, true);
-#endif
 
 	if (OnServer())
 	{
@@ -1502,7 +1503,9 @@ bool CActor::attach_Vehicle(CHolderCustom *object, bool bForce)
 				R_ASSERT(V);
 				LPCSTR anim = stm->Animation(cast_game_object());
 				if (anim && strlen(anim))
+				{
 					V->PlayCycle(anim, FALSE);
+				}
 				CStepManager::on_animation_start(MotionID(), 0);
 			}
 #endif
@@ -1546,8 +1549,6 @@ void CActor::detach_Vehicle(bool bForce)
 			this->callback(GameObject::eDetachVehicle)(GO->lua_game_object());
 		}
 
-		m_holder->detach_Actor();
-
 		character_physics_support()->movement()->CreateCharacter();
 		character_physics_support()->movement()->SetPosition(m_holder->ExitPosition());
 		character_physics_support()->movement()->SetVelocity(m_holder->ExitVelocity());
@@ -1563,6 +1564,7 @@ void CActor::detach_Vehicle(bool bForce)
 
 		SetCallbacks();
 
+		m_holder->detach_Actor();
 		m_holder = NULL;
 		m_holderID = u16(-1);
 

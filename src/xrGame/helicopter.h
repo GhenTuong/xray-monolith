@@ -22,6 +22,9 @@
 #include "stdafx.h"
 #include "../xrphysics/PhysicsShell.h"
 #include "../xrphysics/PHUpdateObject.h"
+
+#include "Holder_Custom.h"
+
 class CPHElement;
 #endif
 
@@ -149,22 +152,10 @@ public:
 	void net_Destroy();
 };
 
-#ifdef CHELICOPTER_CHANGE
-struct SHeliRotor
-{
-	CHelicopter *parent;
-	xr_map<u16, CPhysicsElement *> m_rotor;
-	float m_scale;
-
-	SHeliRotor(CHelicopter *H);
-	~SHeliRotor();
-	void PhDataUpdate(float step);
-};
-#endif
-
 class CHelicopter : public CEntity,
 #ifdef CHELICOPTER_CHANGE
 					public CPHUpdateObject,
+					public CHolderCustom,
 #endif
                     public CShootingObject,
                     public CRocketLauncher,
@@ -406,16 +397,77 @@ public:
 	virtual void			OnRender						();
 #endif
 
+/*----------------------------------------------------------------------------------------------------
+	CHELICOPTER_CHANGE
+----------------------------------------------------------------------------------------------------*/
 #ifdef CHELICOPTER_CHANGE
+/*--------------------------------------------------
+	CHolderCustom
+--------------------------------------------------*/
+protected:
+	enum EHelCamType
+	{
+		ectFirst = 0,
+		ectChase,
+		ectSize
+	};
+
+private:
+	CCameraBase *camera[ectSize];
+	CCameraBase *active_camera;
+	u16 m_camera_bone_def;
+	u16 m_camera_bone_aim;
+	float m_zoom_factor_def;
+	float m_zoom_factor_aim;
+	bool m_zoom_status;
+
+public:
+	virtual CHolderCustom *cast_holder_custom() { return this; }
+	virtual bool Use(const Fvector &pos, const Fvector &dir, const Fvector &foot_pos);
+	virtual bool attach_Actor(CGameObject *actor);
+	virtual void detach_Actor();
+	virtual Fvector ExitPosition();
+	virtual Fvector ExitVelocity();
+	virtual void OnMouseMove(int x, int y);
+	virtual void OnKeyboardPress(int dik);
+	virtual void OnKeyboardRelease(int dik);
+	virtual void OnKeyboardHold(int dik);
+	virtual bool HUDView() const { return true; };
+	virtual bool allowWeapon() const { return false; };
+	virtual CInventory *GetInventory() { return NULL; };
+
+	CCameraBase *Camera() { return active_camera; }
+	bool IsCameraZoom() { return m_zoom_status; }
+	void OnCameraChange(int type);
+	virtual void cam_Update(float dt, float fov = 90.0f);
+	virtual void UpdateEx(float fov);
+	void VisualUpdate();
+
 private:
 	virtual void PhDataUpdate(float step);
 	virtual void PhTune(float step) {};
+	virtual void OnBeforeExplosion();
 
+/*--------------------------------------------------
+	Physic
+--------------------------------------------------*/
 protected:
+	BONE_P_MAP bone_map;
+
+	LPCSTR m_on_before_hit_callback;
+	LPCSTR m_on_before_use_callback;
+	LPCSTR m_on_before_engine_callback;
+
 	bool m_drone_flag;
+	bool m_engine_on;
+
+	u16 m_heli_type;
 	u16 m_body_bone;
 
-	SHeliRotor *m_rotor_manager;
+	xr_map<u16, CPhysicsJoint *> m_rotor;
+	float m_rotor_force_max;
+	float m_rotor_speed_max;
+	void RotorUpdate();
 
 	u16 m_control_ele; /* Elevating */
 	u16 m_control_yaw; /* Yaw */
@@ -428,29 +480,39 @@ protected:
 	float m_control_rol_scale;
 
 public:
-	enum eCtrEle
+	bool GetEngineOn() { return m_engine_on; };
+	bool SetEngineOn(bool val);
+	void SwitchEngine() { SetEngineOn(GetEngineOn()); };
+
+	enum eHeliType
 	{
-		eCtrEle_NA = 0,
-		eCtrEle_UP,
-		eCtrEle_DW,
+		eHeliTypeDefault = 0,
+		eHeliTypePhysic,
 	};
-	enum eCtrYaw
+
+	enum eControlEle
 	{
-		eCtrYaw_NA = 0,
-		eCtrYaw_RS,
-		eCtrYaw_LS,
+		eControlEle_NA = 0,
+		eControlEle_UP,
+		eControlEle_DW,
 	};
-	enum eCtrPit
+	enum eControlYaw
 	{
-		eCtrPit_NA = 0,
-		eCtrPit_FS,
-		eCtrPit_BS,
+		eControlYaw_NA = 0,
+		eControlYaw_RS,
+		eControlYaw_LS,
 	};
-	enum eCtrRol
+	enum eControlPit
 	{
-		eCtrRol_NA = 0,
-		eCtrRol_RS,
-		eCtrRol_LS,
+		eControlPit_NA = 0,
+		eControlPit_FS,
+		eControlPit_BS,
+	};
+	enum eControlRol
+	{
+		eControlRol_NA = 0,
+		eControlRol_RS,
+		eControlRol_LS,
 	};
 
 	u16 GetControlEle() { return m_control_ele; };
@@ -471,9 +533,10 @@ public:
 	void SetControlPitScale(float val) { m_control_pit_scale = val; };
 	void SetControlRolScale(float val) { m_control_rol_scale = val; };
 
-	BONE_P_MAP bone_map;
+	void DroneResetControl();
 
 	virtual BOOL AlwaysTheCrow() { return TRUE; }
+
 	bool IsDrone() { return m_drone_flag; }
 
 #endif
