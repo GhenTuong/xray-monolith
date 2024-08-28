@@ -741,6 +741,9 @@ void CWeaponStatMgun::UpdateOwner()
 		OwnerActor()->Cameras().UpdateFromCamera(Camera());
 		OwnerActor()->Cameras().ApplyDevice(VIEWPORT_NEAR);
 
+		OwnerActor()->Orientation().yaw = 0;
+		OwnerActor()->Orientation().pitch = 0;
+
 		if (IsCameraZoom())
 		{
 			m_destEnemyDir.set(Camera()->Direction());

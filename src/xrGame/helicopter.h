@@ -405,7 +405,7 @@ public:
 	CHolderCustom
 --------------------------------------------------*/
 protected:
-	enum EHelCamType
+	enum eHelCamType
 	{
 		ectFirst = 0,
 		ectChase,
@@ -438,10 +438,11 @@ public:
 
 	CCameraBase *Camera() { return active_camera; }
 	bool IsCameraZoom() { return m_zoom_status; }
-	void OnCameraChange(int type);
+	void OnCameraChange(u16 type);
 	virtual void cam_Update(float dt, float fov = 90.0f);
 	virtual void UpdateEx(float fov);
 	void VisualUpdate();
+	bool ActorAlwaysVisible();
 
 private:
 	virtual void PhDataUpdate(float step);
@@ -463,6 +464,7 @@ protected:
 
 	u16 m_heli_type;
 	u16 m_body_bone;
+	u16 m_hang_bone;
 
 	xr_map<u16, CPhysicsJoint *> m_rotor;
 	float m_rotor_force_max;
@@ -481,8 +483,8 @@ protected:
 
 public:
 	bool GetEngineOn() { return m_engine_on; };
-	bool SetEngineOn(bool val);
-	void SwitchEngine() { SetEngineOn(GetEngineOn()); };
+	void SetEngineOn(bool val);
+	void SwitchEngine();
 
 	enum eHeliType
 	{

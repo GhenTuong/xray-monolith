@@ -75,6 +75,7 @@ CHelicopter::CHelicopter()
 
 	bone_map = BONE_P_MAP();
 	m_body_bone = BI_NONE;
+	m_hang_bone = BI_NONE;
 
 	m_rotor_force_max = 0.0F;
 	m_rotor_speed_max = 0.0F;
@@ -85,19 +86,21 @@ CHelicopter::CHelicopter()
 #endif
 }
 
+#ifdef CHELICOPTER_CHANGE
+CHelicopter::~CHelicopter()
+{
+	xr_delete(camera[ectFirst]);
+	xr_delete(camera[ectChase]);
+	bone_map.clear();
+	m_rotor.clear();
+}
+#else
 CHelicopter::~CHelicopter(){}
+#endif
 
 void CHelicopter::setState(CHelicopter::EHeliState s)
 {
 	m_curState = s;
-
-#ifdef CHELICOPTER_CHANGE
-	xr_delete(camera[ectFirst]);
-	xr_delete(camera[ectChase]);
-
-	bone_map.clear();
-	m_rotor.clear();
-#endif
 }
 
 
@@ -188,6 +191,7 @@ void CHelicopter::Load(LPCSTR section)
 	m_lanim = LALib.FindItem(lanim);
 
 #ifdef CHELICOPTER_CHANGE
+	Msg("%s:%d", __FUNCTION__, __LINE__);
 	m_drone_flag = !!READ_IF_EXISTS(pSettings, r_bool, cNameSect_str(), "is_drone", false);
 	m_control_ele_scale = READ_IF_EXISTS(pSettings, r_float, cNameSect_str(), "control_ele_scale", 1.0F);
 	m_control_yaw_scale = READ_IF_EXISTS(pSettings, r_float, cNameSect_str(), "control_yaw_scale", 1.0F);
@@ -213,13 +217,6 @@ void CHelicopter::reload(LPCSTR section)
 {
 	inherited::reload(section);
 }
-
-#ifdef CHELICOPTER_CHANGE
-void CollisionCallbackEnable(bool &do_colide, bool bo1, dContact &c, SGameMtl *material_1, SGameMtl *material_2)
-{
-	do_colide = true;
-}
-#endif
 
 void CollisionCallbackAlife(bool& do_colide, bool bo1, dContact& c, SGameMtl* material_1, SGameMtl* material_2)
 {
@@ -373,30 +370,14 @@ BOOL CHelicopter::net_Spawn(CSE_Abstract* DC)
 
 #ifdef CHELICOPTER_CHANGE
 	CInifile *ini = K->LL_UserData();
-
-	{
-		LPCSTR str = READ_IF_EXISTS(ini, r_string, "config", "heli_type", NULL);
-		m_heli_type = eHeliTypeDefault;
-		if (str)
-		{
-			if (strcmp(str, "default"))
-			{
-				m_heli_type = eHeliTypeDefault;
-			}
-			if (strcmp(str, "physic"))
-			{
-				m_heli_type = eHeliTypePhysic;
-			}
-		}
-	}
-
 	m_body_bone = ini->line_exist("config", "body_bone") ? K->LL_BoneID(ini->r_string("config", "body_bone")) : BI_NONE;
+	m_hang_bone = ini->line_exist("config", "hang_bone") ? K->LL_BoneID(ini->r_string("config", "hang_bone")) : BI_NONE;
 
-	if (ini->line_exist("config", "camera_first") && ini->section_exist(ini->r_string("config", "camera_first")))
+	if (ini->line_exist("config", "camera_first"))
 	{
 		camera[ectFirst]->Load(ini->r_string("config", "camera_first"));
 	}
-	if (ini->line_exist("config", "camera_chase") && ini->section_exist(ini->r_string("config", "camera_chase")))
+	if (ini->line_exist("config", "camera_chase"))
 	{
 		camera[ectChase]->Load(ini->r_string("config", "camera_chase"));
 	}
@@ -406,20 +387,22 @@ BOOL CHelicopter::net_Spawn(CSE_Abstract* DC)
 	m_zoom_factor_def = READ_IF_EXISTS(ini, r_float, "config", "zoom_factor_def", 1.0F);
 	m_zoom_factor_aim = READ_IF_EXISTS(ini, r_float, "config", "zoom_factor_aim", 1.0F);
 
-	m_rotor.clear();
 	if (ini->section_exist("config"))
 	{
-		LPCSTR str = READ_IF_EXISTS(ini, r_string, "config", "rotor_bone", NULL);
-		string64 bone_name;
-		int n = _GetItemCount(str);
-		for (int k = 0; k < n; ++k)
 		{
-			memset(bone_name, 0, sizeof(bone_name));
-			_GetItem(str, k, bone_name);
-			u16 bone_id = (strlen(bone_name)) ? K->LL_BoneID(bone_name) : BI_NONE;
-			if (bone_id != BI_NONE && bone_map.find(bone_id)->second.joint != NULL)
+			m_rotor.clear();
+			LPCSTR str = READ_IF_EXISTS(ini, r_string, "config", "rotor_bone", NULL);
+			string64 bone_name;
+			int n = _GetItemCount(str);
+			for (int k = 0; k < n; ++k)
 			{
-				m_rotor.insert(mk_pair(bone_id, bone_map.find(bone_id)->second.joint));
+				memset(bone_name, 0, sizeof(bone_name));
+				_GetItem(str, k, bone_name);
+				u16 bone_id = (strlen(bone_name)) ? K->LL_BoneID(bone_name) : BI_NONE;
+				if (bone_id != BI_NONE && bone_map.find(bone_id)->second.joint != NULL)
+				{
+					m_rotor.insert(mk_pair(bone_id, bone_map.find(bone_id)->second.joint));
+				}
 			}
 		}
 
@@ -460,15 +443,27 @@ void CHelicopter::net_Destroy()
 void CHelicopter::SpawnInitPhysics(CSE_Abstract* D)
 {
 #ifdef CHELICOPTER_CHANGE
+	IKinematics *K = Visual()->dcast_PKinematics();
+	CInifile *ini = K->LL_UserData();
+
+	{
+		LPCSTR str = READ_IF_EXISTS(ini, r_string, "config", "heli_type", NULL);
+		m_heli_type = eHeliTypeDefault;
+		if (str && strlen(str))
+		{
+			if (strcmp(str, "default") == 0)
+			{
+				m_heli_type = eHeliTypeDefault;
+			}
+			if (strcmp(str, "physic") == 0)
+			{
+				m_heli_type = eHeliTypePhysic;
+			}
+		}
+	}
+
 	if (m_heli_type == eHeliTypePhysic)
 	{
-		if (!Visual())
-			return;
-		IRenderVisual *V = Visual();
-		IKinematics *K = V->dcast_PKinematics();
-		CInifile *ini = K->LL_UserData();
-
-		Msg("%s:%d", __FUNCTION__, __LINE__);
 		{
 			bone_map.clear();
 			auto i = K->LL_Bones()->begin();
@@ -502,9 +497,6 @@ void CHelicopter::SpawnInitPhysics(CSE_Abstract* D)
 		m_pPhysicsShell->Activate();
 		m_pPhysicsShell->Enable();
 		CPHUpdateObject::Activate();
-
-		//PPhysicsShell()->set_ObjectContactCallback(CollisionCallbackEnable);
-		//PPhysicsShell()->set_ContactCallback(ContactCallbackAlife);
 		return;
 	}
 #endif
@@ -841,8 +833,11 @@ bool CHelicopter::attach_Actor(CGameObject *actor)
 			{
 				OnCameraChange(ectChase);
 			}
-			DroneResetControl();
 		}
+#if 1
+		OnCameraChange(ectChase);	
+#endif
+		DroneResetControl();
 		return true;
 	}
 
@@ -866,7 +861,7 @@ void CHelicopter::detach_Actor()
 
 	if (OwnerActor())
 	{
-		OwnerActor()->setVisible(1);
+		OwnerActor()->setVisible(TRUE);
 	}
 
 	m_zoom_status = false;
@@ -877,7 +872,7 @@ Fvector CHelicopter::ExitPosition()
 {
 	if (Owner())
 	{
-		Fvector().set(Owner()->Position());
+		return Fvector().set(Owner()->Position());
 	}
 	return Fvector().set(0.0F, 0.0F, 0.0F);
 }
@@ -887,21 +882,34 @@ Fvector CHelicopter::ExitVelocity()
 	return Fvector().set(0.0F, 0.0F, 0.0F);
 }
 
-void CHelicopter::OnCameraChange(int type)
+void CHelicopter::OnCameraChange(u16 type)
 {
-	if (Owner())
+	if (OwnerActor())
 	{
-		if (type == ectFirst)
+		if (ActorAlwaysVisible())
 		{
-			Owner()->setVisible(FALSE);
+			OwnerActor()->setVisible(TRUE);
 		}
-		else if (active_camera->tag == ectFirst)
+		else
 		{
-			Owner()->setVisible(TRUE);
+			if (type == ectFirst)
+			{
+				OwnerActor()->setVisible(FALSE);
+			}
+			else if (active_camera->tag == ectFirst)
+			{
+				OwnerActor()->setVisible(TRUE);
+			}
 		}
 	}
 
-	active_camera = camera[type];
+	switch (type)
+	{
+	case ectFirst:
+	case ectChase:
+		active_camera = camera[type];
+		break;
+	}
 }
 
 void CHelicopter::VisualUpdate()
@@ -984,7 +992,7 @@ void CHelicopter::cam_Update(float dt, float fov)
 	Level().Cameras().UpdateFromCamera(cam);
 }
 
-bool CHelicopter::SetEngineOn(bool val)
+void CHelicopter::SetEngineOn(bool val)
 {
 	if (m_on_before_engine_callback && strlen(m_on_before_engine_callback))
 	{
@@ -993,35 +1001,43 @@ bool CHelicopter::SetEngineOn(bool val)
 		{
 			if (!lua_function(lua_game_object(), m_engine_on))
 			{
-				return false;
+				return;
 			}
 		}
 	}
 
-	if (m_engine_on == false)
+	if (val == true)
 	{
 		if (state() != CHelicopter::eAlive)
 		{
-			return false;
+			return;
 		}
 	}
 
 	m_engine_on = val;
-
 	TurnEngineSound(m_engine_on);
-	return true;
 }
 
-/*--------------------------------------------------
-	IC
---------------------------------------------------*/
+void CHelicopter::SwitchEngine()
+{
+	SetEngineOn((m_engine_on) ? false : true);
+}
+
+bool CHelicopter::ActorAlwaysVisible()
+{
+	return IsDrone();
+}
+
+/*----------------------------------------------------------------------------------------------------
+	IR
+----------------------------------------------------------------------------------------------------*/
 void CHelicopter::OnMouseMove(int dx, int dy)
 {
 	if (Remote())
 		return;
 
 	CCameraBase *cam = Camera();
-	float scale = (cam->f_fov / g_fov) * psMouseSens * psMouseSensScale / 50.f;
+	float scale = (cam->f_fov / g_fov) * psMouseSens * psMouseSensScale / 50.0F;
 	if (dx)
 	{
 		float d = float(dx) * scale;
@@ -1029,7 +1045,7 @@ void CHelicopter::OnMouseMove(int dx, int dy)
 	}
 	if (dy)
 	{
-		float d = ((psMouseInvert.test(1)) ? -1 : 1) * float(dy) * scale * 3.f / 4.f;
+		float d = ((psMouseInvert.test(1)) ? -1 : 1) * float(dy) * scale * 3.0F / 4.0F;
 		cam->Move((d > 0) ? kUP : kDOWN, _abs(d));
 	}
 }
@@ -1044,16 +1060,17 @@ void CHelicopter::OnKeyboardPress(int dik)
 		switch (dik)
 		{
 		/* Movement. */
-		case kWPN_FIRE:
+		case kACCEL:
+		case kSPRINT_TOGGLE:
 			m_control_ele = (m_control_ele == eControlEle_DW) ? eControlEle_NA : eControlEle_UP;
 			break;
-		case kWPN_ZOOM:
+		case kCROUCH:
 			m_control_ele = (m_control_ele == eControlEle_UP) ? eControlEle_NA : eControlEle_DW;
 			break;
-		case kL_LOOKOUT:
+		case kL_STRAFE:
 			m_control_yaw = (m_control_yaw == eControlYaw_RS) ? eControlYaw_NA : eControlYaw_LS;
 			break;
-		case kR_LOOKOUT:
+		case kR_STRAFE:
 			m_control_yaw = (m_control_yaw == eControlYaw_LS) ? eControlYaw_NA : eControlYaw_RS;
 			break;
 		case kFWD:
@@ -1062,14 +1079,17 @@ void CHelicopter::OnKeyboardPress(int dik)
 		case kBACK:
 			m_control_pit = (m_control_pit == eControlPit_FS) ? eControlPit_NA : eControlPit_BS;
 			break;
-		case kL_STRAFE:
+		case kL_LOOKOUT:
 			m_control_rol = (m_control_rol == eControlRol_LS) ? eControlRol_NA : eControlRol_RS;
 			break;
-		case kR_STRAFE:
+		case kR_LOOKOUT:
 			m_control_rol = (m_control_rol == eControlRol_RS) ? eControlRol_NA : eControlRol_LS;
 			break;
 		/* Action. */
 		case kJUMP:
+			break;
+		case kDETECTOR:
+			SwitchEngine();
 			break;
 		case kWPN_ZOOM_INC:
 			m_zoom_status = true;
@@ -1091,16 +1111,17 @@ void CHelicopter::OnKeyboardRelease(int dik)
 		switch (dik)
 		{
 		/* Movement. */
-		case kWPN_FIRE:
+		case kACCEL:
+		case kSPRINT_TOGGLE:
 			m_control_ele = (m_control_ele == eControlEle_UP) ? eControlEle_NA : eControlEle_DW;
 			break;
-		case kWPN_ZOOM:
+		case kCROUCH:
 			m_control_ele = (m_control_ele == eControlEle_DW) ? eControlEle_NA : eControlEle_UP;
 			break;
-		case kL_LOOKOUT:
+		case kL_STRAFE:
 			m_control_yaw = (m_control_yaw == eControlYaw_LS) ? eControlYaw_NA : eControlYaw_RS;
 			break;
-		case kR_LOOKOUT:
+		case kR_STRAFE:
 			m_control_yaw = (m_control_yaw == eControlYaw_RS) ? eControlYaw_NA : eControlYaw_LS;
 			break;
 		case kFWD:
@@ -1109,17 +1130,14 @@ void CHelicopter::OnKeyboardRelease(int dik)
 		case kBACK:
 			m_control_pit = (m_control_pit == eControlPit_BS) ? eControlPit_NA : eControlPit_FS;
 			break;
-		case kL_STRAFE:
+		case kL_LOOKOUT:
 			m_control_rol = (m_control_rol == eControlRol_RS) ? eControlRol_NA : eControlRol_LS;
 			break;
-		case kR_STRAFE:
+		case kR_LOOKOUT:
 			m_control_rol = (m_control_rol == eControlRol_LS) ? eControlRol_NA : eControlRol_RS;
 			break;
 		/* Action. */
 		case kJUMP:
-			break;
-		case kDETECTOR:
-			SwitchEngine();
 			break;
 		/* Change camera. */
 		case kCAM_1:
@@ -1145,43 +1163,60 @@ void CHelicopter::PhDataUpdate(float step)
 	if (m_pPhysicsShell == NULL)
 		return;
 
+	if (m_heli_type != eHeliTypePhysic)
+		return;
 #if 0
 	RotorUpdate();
 #endif
 
-	if (IsDrone() && m_engine_on)
+	if (GetEngineOn())
 	{
 		CPhysicsElement *E = (m_body_bone != BI_NONE) ? bone_map.find(m_body_bone)->second.element : NULL;
+		CPhysicsElement *H = (m_hang_bone != BI_NONE) ? bone_map.find(m_hang_bone)->second.element : NULL;
 		if (E == NULL)
 			return;
 
+		float mass = m_pPhysicsShell->getMass();
+
 		{
 			{
-				float force = PPhysicsShell()->getMass() * EffectiveGravity();
-				Fvector vec = Fvector().set(XFORM().j);
-				// Msg("m=%f g=%f | %f,%f,%f", PPhysicsShell()->getMass(), EffectiveGravity(), vec.x, vec.y, vec.z);
-				E->applyForce(vec.normalize(), force);
-			}
+#if 1
+				Fvector vec = Fvector().set(0.0F, 1.0F, 0.0F);
+				// XFORM().transform_dir(vec);
+				// Msg("m=%f | %f,%f,%f", mass, vec.x, vec.y, vec.z);
+				E->applyForce(vec, (mass + H->getMass()) * EffectiveGravity());
+				H->applyForce(Fvector().set(0.0F, -1.0F, 0.0F), H->getMass() * EffectiveGravity());
+#else
+				H->applyForce(Fvector().set(0.0F, -1.0F, 0.0F), H->getMass() * EffectiveGravity());
 
+				float force = (mass + H->getMass()) * EffectiveGravity();
+				Fvector vec = Fvector().set(0.0F, 1.0F, 0.0F);
+				// XFORM().transform_dir(vec);
+				// Msg("m=%f | %f,%f,%f", mass, vec.x, vec.y, vec.z);
+				E->applyForce(vec.normalize(), force);
+#endif
+			}
+#if 1
+#else
 			float kp = XFORM().k.getP();
-			if (kp < -EPS_L || EPS_L < kp)
+			if (_abs(kp) > 0.01)
 			{
-				float force = m_pPhysicsShell->getMass() * EffectiveGravity() * kp * 0.5 / PI_DIV_2;
+				float force = mass * 0.5 * (kp / PI_DIV_2);
 				Fvector vec = Fvector().set(1.0F, 0.0F, 0.0F);
 				XFORM().transform_dir(vec);
-				// Msg("m=%f g=%f k=%f | %f,%f,%f", PPhysicsShell()->getMass(), EffectiveGravity(), kp, vec.x, vec.y, vec.z);
+				Msg("m=%f k=%f f=%f | %f,%f,%f", mass, rad2deg(kp), force, vec.x, vec.y, vec.z);
 				E->applyTorque(vec.normalize(), force);
 			}
-
 			float ip = XFORM().i.getP();
-			if (ip < -EPS_L || EPS_L < ip)
+			if (_abs(ip) > 0.01)
 			{
-				float force = m_pPhysicsShell->getMass() * EffectiveGravity() * ip * 0.5 / PI_DIV_2;
+				float force = mass * 0.5 * (ip / PI_DIV_2);
 				Fvector vec = Fvector().set(0.0F, 0.0F, 1.0F);
 				XFORM().transform_dir(vec);
-				// Msg("m=%f g=%f i=%f | %f,%f,%f", PPhysicsShell()->getMass(), EffectiveGravity(), ip, vec.x, vec.y, vec.z);
+				Msg("m=%f i=%f f=%f | %f,%f,%f", mass, rad2deg(ip), force, vec.x, vec.y, vec.z);
 				E->applyTorque(vec.normalize(), force);
 			}
+#endif
 		}
 
 		Fvector velocity;
@@ -1192,19 +1227,19 @@ void CHelicopter::PhDataUpdate(float step)
 		{
 		case eControlEle_NA:
 		{
-			if (velocity.y < -EPS_L || EPS_L < velocity.y)
+			if (_abs(velocity.y) > EPS_L)
 			{
-				float force = -__min(velocity.y, m_control_ele_scale) * PPhysicsShell()->getMass();
+				float force = __min(_abs(velocity.y), m_control_ele_scale) * m_pPhysicsShell->getMass();
 				Fvector vec = Fvector().set(0.0F, 1.0F, 0.0F);
 				XFORM().transform_dir(vec);
-				E->applyForce(vec.normalize(), force);
+				E->applyForce(vec.normalize(), (velocity.y < 0) ? force : -force);
 			}
 			break;
 		}
 		case eControlEle_UP:
 		case eControlEle_DW:
 		{
-			float force = m_control_ele_scale * PPhysicsShell()->getMass();
+			float force = m_control_ele_scale * m_pPhysicsShell->getMass();
 			Fvector vec = Fvector().set(0.0F, 1.0F, 0.0F);
 			XFORM().transform_dir(vec);
 			E->applyForce(vec.normalize(), (m_control_ele == eControlEle_UP) ? force : -force);
@@ -1219,19 +1254,19 @@ void CHelicopter::PhDataUpdate(float step)
 		{
 		case eControlYaw_NA:
 		{
-			if (angular.y < -EPS_L || EPS_L < angular.y)
+			if (_abs(angular.y) > EPS_L)
 			{
-				float force = -__min(angular.y, m_control_yaw_scale) * PPhysicsShell()->getMass();
+				float force = __min(_abs(angular.y), m_control_yaw_scale) * m_pPhysicsShell->getMass();
 				Fvector vec = Fvector().set(0.0F, 1.0F, 0.0F);
 				XFORM().transform_dir(vec);
-				E->applyTorque(vec.normalize(), force);
+				E->applyTorque(vec.normalize(), (angular.y < 0) ? force : -force);
 			}
 			break;
 		}
 		case eControlYaw_RS:
 		case eControlYaw_LS:
 		{
-			float force = m_control_yaw_scale * PPhysicsShell()->getMass();
+			float force = m_control_yaw_scale * m_pPhysicsShell->getMass();
 			Fvector vec = Fvector().set(0.0F, 1.0F, 0.0F);
 			XFORM().transform_dir(vec);
 			E->applyTorque(vec.normalize(), (m_control_yaw == eControlYaw_RS) ? force : -force);
@@ -1243,19 +1278,19 @@ void CHelicopter::PhDataUpdate(float step)
 		{
 		case eControlPit_NA:
 		{
-			if (velocity.z < -EPS_L || EPS_L < velocity.z)
+			if (_abs(velocity.z) > EPS_L)
 			{
-				float force = -__min(velocity.z, m_control_pit_scale) * PPhysicsShell()->getMass();
+				float force = __min(_abs(velocity.z), m_control_pit_scale) * m_pPhysicsShell->getMass();
 				Fvector vec = Fvector().set(0.0F, 0.0F, 1.0F);
 				XFORM().transform_dir(vec);
-				E->applyForce(vec.normalize(), force);
+				E->applyForce(vec.normalize(), (velocity.z < 0) ? force : -force);
 			}
 			break;
 		}
 		case eControlPit_FS:
 		case eControlPit_BS:
 		{
-			float force = m_control_pit_scale * PPhysicsShell()->getMass();
+			float force = m_control_pit_scale * m_pPhysicsShell->getMass();
 			Fvector vec = Fvector().set(0.0F, 0.0F, 1.0F);
 			XFORM().transform_dir(vec);
 			E->applyForce(vec.normalize(), (m_control_pit == eControlPit_FS) ? force : -force);
@@ -1267,19 +1302,19 @@ void CHelicopter::PhDataUpdate(float step)
 		{
 		case eControlRol_NA:
 		{
-			if (velocity.x < -EPS_L || EPS_L < velocity.x)
+			if (_abs(velocity.x) > EPS_L)
 			{
-				float force = -__min(velocity.x, m_control_rol_scale) * PPhysicsShell()->getMass();
+				float force = __min(_abs(velocity.x), m_control_rol_scale) * m_pPhysicsShell->getMass();
 				Fvector vec = Fvector().set(1.0F, 0.0F, 0.0F);
 				XFORM().transform_dir(vec);
-				E->applyForce(vec.normalize(), force);
+				E->applyForce(vec.normalize(), (velocity.x < 0) ? force : -force);
 			}
 			break;
 		}
 		case eControlRol_RS:
 		case eControlRol_LS:
 		{
-			float force = m_control_rol_scale * PPhysicsShell()->getMass();
+			float force = m_control_rol_scale * m_pPhysicsShell->getMass();
 			Fvector vec = Fvector().set(1.0F, 0.0F, 0.0F);
 			XFORM().transform_dir(vec);
 			E->applyForce(vec.normalize(), (m_control_rol == eControlRol_RS) ? force : -force);
@@ -1325,6 +1360,7 @@ void CHelicopter::OnBeforeExplosion()
 	{
 		OwnerActor()->use_HolderEx(NULL, true);
 	}
+	SetEngineOn(false);
 	CExplosive::OnBeforeExplosion();
 }
 #endif
