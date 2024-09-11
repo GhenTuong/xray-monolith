@@ -124,9 +124,9 @@ BOOL CPhysicsShellHolder::net_Spawn(CSE_Abstract* DC)
 
 #if 1
 	m_ignore_collision_flag = 0;
-	if (pSettings->line_exist(cNameSect(), "ignore_collision"))
+	if (pSettings->line_exist(cNameSect_str(), "ignore_collision"))
 	{
-		LPCSTR tmp = pSettings->r_string(cNameSect(), "ignore_collision");
+		LPCSTR tmp = pSettings->r_string(cNameSect_str(), "ignore_collision");
 		if (strstr(tmp, "map"))
 		{
 			m_ignore_collision_flag = m_ignore_collision_flag | ICmap;
@@ -674,9 +674,13 @@ std::string	CPhysicsShellHolder::dump(EDumpType type) const
 #if 1
 void CPhysicsShellHolder::IgnoreCollisionCallback(bool &do_colide, bool bo1, dContact &c, SGameMtl *material_1, SGameMtl *material_2)
 {
+	if (do_colide == false)
+	{
+		return;
+	}
+
 	dxGeomUserData *gd1 = bo1 ? PHRetrieveGeomUserData(c.geom.g1) : PHRetrieveGeomUserData(c.geom.g2);
 	dxGeomUserData *gd2 = bo1 ? PHRetrieveGeomUserData(c.geom.g2) : PHRetrieveGeomUserData(c.geom.g1);
-
 	CGameObject *obj = (gd1) ? smart_cast<CGameObject *>(gd1->ph_ref_object) : NULL;
 	CGameObject *who = (gd2) ? smart_cast<CGameObject *>(gd2->ph_ref_object) : NULL;
 
@@ -693,7 +697,7 @@ void CPhysicsShellHolder::IgnoreCollisionCallback(bool &do_colide, bool bo1, dCo
 
 	if (who == NULL)
 	{
-		if (a->m_ignore_collision_flag & a->ICmap)
+		if (a->m_ignore_collision_flag & CPhysicsShellHolder::ICmap)
 		{
 			do_colide = false;
 		}
@@ -703,9 +707,9 @@ void CPhysicsShellHolder::IgnoreCollisionCallback(bool &do_colide, bool bo1, dCo
 	CPhysicsShellHolder *b = smart_cast<CPhysicsShellHolder *>(who);
 	if (b)
 	{
-		if (b->cast_actor() || b->cast_custom_monster())
+		if (who->cast_actor() || who->cast_stalker() || who->cast_base_monster())
 		{
-			if (a->m_ignore_collision_flag & a->ICnpc)
+			if (a->m_ignore_collision_flag & CPhysicsShellHolder::ICnpc)
 			{
 				do_colide = false;
 				return;
@@ -713,9 +717,9 @@ void CPhysicsShellHolder::IgnoreCollisionCallback(bool &do_colide, bool bo1, dCo
 		}
 		else
 		{
-			if (a->m_ignore_collision_flag & a->ICobj)
+			if (a->m_ignore_collision_flag & CPhysicsShellHolder::ICobj)
 			{
-				if (b->m_ignore_collision_flag & b->ICobj)
+				if (b->m_ignore_collision_flag & CPhysicsShellHolder::ICobj)
 				{
 					do_colide = false;
 					return;
@@ -728,7 +732,6 @@ void CPhysicsShellHolder::IgnoreCollisionCallback(bool &do_colide, bool bo1, dCo
 void CPhysicsShellHolder::active_ignore_collision()
 {
 	R_ASSERT(PPhysicsShell());
-	PPhysicsShell()->remove_ObjectContactCallback(IgnoreCollisionCallback);
 	PPhysicsShell()->add_ObjectContactCallback(IgnoreCollisionCallback);
 }
 #endif
