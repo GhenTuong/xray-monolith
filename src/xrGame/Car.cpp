@@ -36,7 +36,7 @@ BONE_P_MAP CCar::bone_map = BONE_P_MAP();
 
 //extern CPHWorld*	ph_world;
 
-#ifdef CAR_CHANGE
+#ifdef CCAR_CHANGE
 #include "UIGameSP.h"
 #include "UIGameCustom.h"
 #endif
@@ -102,7 +102,17 @@ CCar::CCar()
 	InitDebug();
 #endif
 
-#ifdef CAR_CHANGE
+#ifdef CCAR_CHANGE
+	m_crew_manager = xr_new<CCarCrewManager>(this);
+	m_actor_select_seat = NULL;
+
+	m_on_before_hit_callback = NULL;
+	m_on_before_use_callback = NULL;
+	m_on_before_start_engine_callback = NULL;
+	m_engine_switch_state_delay = 0;
+
+	m_camera_bone = BI_NONE;
+
 	m_max_power_def = 0.0f;
 	m_fuel_tank_def = 0.0f;
 	m_fuel_consumption_def = 0.0f;
@@ -110,6 +120,8 @@ CCar::CCar()
 	m_inventory_flag = false;
 	m_inventory_bone.clear();
 	m_max_carry_weight_def = 0.0f;
+	m_balance_bone = BI_NONE;
+	m_balance_factor = 0.0f;
 #endif
 }
 
@@ -125,7 +137,9 @@ CCar::~CCar(void)
 	xr_delete(m_memory);
 	//	xr_delete			(l_tpEntityAction);
 
-#ifdef CAR_CHANGE
+#ifdef CCAR_CHANGE
+	xr_delete(m_crew_manager);
+
 	m_on_before_hit_callback = NULL;
 	m_on_before_use_callback = NULL;
 	m_on_before_start_engine_callback = NULL;
@@ -228,6 +242,11 @@ BOOL CCar::net_Spawn(CSE_Abstract* DC)
 		m_memory = xr_new<car_memory>(this);
 		m_memory->reload(pUserData->r_string("visual_memory_definition", "section"));
 	}
+
+#ifdef CCAR_CHANGE
+	PPhysicsShell()->Enable();
+	PPhysicsShell()->add_ObjectContactCallback(CrewObstacleCallback);
+#endif
 
 	return (CScriptEntity::net_Spawn(DC));
 }
@@ -517,7 +536,7 @@ void CCar::VisualUpdate(float fov)
 	UpdateExhausts();
 	m_lights.Update();
 
-#ifdef CAR_CHANGE
+#ifdef CCAR_CHANGE
 	GetInventory()->Update();
 #endif
 }
@@ -578,7 +597,7 @@ void CCar::Hit(SHit* pHDS)
 	if (HDS.hit_type != ALife::eHitTypeStrike) CDamageManager::HitScale(HDS.bone(), hitScale, woundScale);
 	HDS.power *= GetHitImmunity(HDS.hit_type) * hitScale;
 
-#ifdef CAR_CHANGE
+#ifdef CCAR_CHANGE
 	if (m_on_before_hit_callback && strlen(m_on_before_hit_callback))
 	{
 		luabind::functor<bool> lua_function;
@@ -657,6 +676,59 @@ void CCar::ApplyDamage(u16 level)
 	}
 }
 
+#ifdef CCAR_CHANGE
+void CCar::detach_Actor()
+{
+	if (!Owner())
+		return;
+	
+	if (OwnerActor())
+		OwnerActor()->setVisible(1);
+	CHolderCustom::detach_Actor();
+	PPhysicsShell()->remove_ObjectContactCallback(ActorObstacleCallback);
+	NeutralDrive();
+	Unclutch();
+	ResetKeys();
+	m_current_rpm = m_min_rpm;
+	HandBreak();
+}
+
+bool CCar::attach_Actor(CGameObject *actor)
+{
+	if (Owner() || CPHDestroyable::Destroyed())
+		return false;
+
+	CHolderCustom::attach_Actor(actor);
+
+	if (CrewManagerAvailable())
+	{
+		bool is_attach_crew_success = false;
+		if (m_actor_select_seat)
+		{
+			is_attach_crew_success = m_crew_manager->AttachCrew(Owner(), m_actor_select_seat)
+		}
+		else
+		{
+			SSeat *seat = m_crew_manager->GetSeatEmpty();
+			is_attach_crew_success = seat && m_crew_manager->AttachCrew(Owner(), seat->section);
+		}
+
+		m_actor_select_seat = NULL;
+		if (is_attach_crew_success == false)
+		{
+			CHolderCustom::detach_Actor();
+			return false;
+		}
+	}
+
+	if (OwnerActor())
+		OwnerActor()->setVisible(0);
+	OnCameraChange(ectFirst);
+	processing_activate();
+	ReleaseHandBreak();
+	return true;
+}
+#else
 void CCar::detach_Actor()
 {
 	if (!Owner()) return;
@@ -712,7 +784,7 @@ bool CCar::attach_Actor(CGameObject* actor)
 
 	return true;
 }
-
+#endif
 
 bool CCar::is_Door(u16 id, xr_map<u16, SDoor>::iterator& i)
 {
@@ -883,7 +955,9 @@ void CCar::ParseDefinitions()
 
 	m_damage_particles.Init(this);
 
-#ifdef CAR_CHANGE
+#ifdef CCAR_CHANGE
+	m_crew_manager->Load();
+
 	m_max_power_def = m_max_power;
 	m_fuel_tank_def = m_fuel_tank;
 	m_fuel_consumption_def = m_fuel_consumption;
@@ -902,6 +976,9 @@ void CCar::ParseDefinitions()
 	{
 		m_on_before_start_engine_callback = READ_IF_EXISTS(pSettings, r_string, cNameSect_str(), "on_before_start_engine", "");
 	}
+
+	m_camera_bone = ini->line_exist("config", "camera_bone") ? K->LL_BoneID(ini->r_string("config", "camera_bone")) : BI_NONE;
+	m_camera_position = READ_IF_EXISTS(ini, r_fvector3, "config", "camera_position", Fvector().set(0, 0, 0));
 
 	if (ini->section_exist("inventory"))
 	{
@@ -924,6 +1001,9 @@ void CCar::ParseDefinitions()
 		GetInventory()->SetMaxWeight(READ_IF_EXISTS(pSettings, r_float, cNameSect_str(), "max_weight", 0.0f));
 		m_max_carry_weight_def = GetInventory()->GetMaxWeight();
 	}
+
+	m_balance_bone = ini->line_exist("config", "balance_bone") ? K->LL_BoneID(ini->r_string("config", "balance_bone")) : BI_NONE;
+	m_balance_factor = READ_IF_EXISTS(ini, r_float, "config", "balance_factor", 1.0F);
 #endif
 }
 
@@ -1124,7 +1204,7 @@ void CCar::StartEngine()
 {
 	if (m_fuel < EPS || b_engine_on) return;
 
-#ifdef CAR_CHANGE
+#ifdef CCAR_CHANGE
 	if (m_engine_switch_state_delay > Device.dwTimeGlobal)
 	{
 		return;
@@ -1597,7 +1677,7 @@ void CCar::ClearExhausts()
 
 bool CCar::Use(const Fvector& pos, const Fvector& dir, const Fvector& foot_pos)
 {
-#ifdef CAR_CHANGE
+#ifdef CCAR_CHANGE
 	if (m_on_before_use_callback && strlen(m_on_before_use_callback))
 	{
 		luabind::functor<bool> lua_function;
@@ -1618,6 +1698,22 @@ bool CCar::Use(const Fvector& pos, const Fvector& dir, const Fvector& foot_pos)
 			UseInventory();
 			return false;
 		}
+	}
+
+	if (CrewManagerAvailable())
+	{
+		m_actor_select_seat = NULL;
+		collide::rq_result &RQ = HUD().GetCurrentRayQuery();
+		if (RQ.O && (RQ.O->ID() == ID()))
+		{
+			SSeat *seat = m_crew_manager->GetSeatByDoor(RQ.element);
+			if (seat && (m_crew_manager->GetCrewBySeat(seat) == NULL))
+			{
+				m_actor_select_seat = seat->section;
+				return true;
+			}
+		}
+		return false;
 	}
 
 	if (m_doors.size() == 0)
@@ -1850,7 +1946,7 @@ void CCar::OnEvent(NET_Packet& P, u16 type)
 	inherited::OnEvent(P, type);
 	CExplosive::OnEvent(P, type);
 
-#ifdef CAR_CHANGE
+#ifdef CCAR_CHANGE
 	switch (type)
 	{
 	case GE_TRADE_BUY:
@@ -1987,6 +2083,10 @@ void CCar::PhDataUpdate(float step)
 
 	m_steer_angle = m_steering_wheels.begin()->GetSteerAngle() * 0.1f + m_steer_angle * 0.9f;
 	VERIFY(_valid(m_steer_angle));
+
+#ifdef CCAR_CHANGE
+	SelfBalanceUpdate();
+#endif
 }
 
 BOOL CCar::UsedAI_Locations()
@@ -2345,14 +2445,32 @@ bool CCar::isActiveEngine()
 }
 #endif
 /*************************************************** added by Ray Twitty (aka Shadows) END ***************************************************/
+
+#ifdef CCAR_CHANGE
+Fvector CCar::ExitPosition()
+{
+	if (CrewManagerAvailable() && Owner())
+	{
+		return CrewExitPosition(Owner());
+	}
+
+	if (!m_doors.empty())
+		m_doors.begin()->second.GetExitPosition(m_exit_position);
+	else
+		m_exit_position.set(Position());
+	return m_exit_position;
+}
+
+#else
 Fvector CCar::ExitPosition()
 {
 	if (!m_doors.empty())m_doors.begin()->second.GetExitPosition(m_exit_position);
 	else m_exit_position.set(Position());
 	return m_exit_position;
 }
+#endif
 
-#ifdef CAR_CHANGE
+#ifdef CCAR_CHANGE
 bool CCar::is_ai_obstacle() const
 {
 	return true;
@@ -2393,6 +2511,36 @@ void CCar::StartEngineForce()
 	b_engine_on = true;
 	m_current_rpm = 0.f;
 	b_starting = true;
+}
+
+void CCar::SelfBalanceUpdate()
+{
+	if (!Owner() || (m_balance_bone == BI_NONE))
+		return;
+
+	CPhysicsElement *E = m_pPhysicsShell->get_Element(m_balance_bone);
+	if (E)
+	{
+		Fvector velocity;
+		GetVelocity(velocity);
+		float speed = velocity.magnitude();
+
+		Fvector ang;
+		E->get_AngularVel(ang);
+
+		float ip = XFORM().i.getP();
+		if (_abs(ip) > 0.01)
+		{
+			float force = m_pPhysicsShell->getMass() * m_balance_factor * (ip / PI_DIV_2);
+			// XFORM().transform_dir(vec);
+			Msg("%s:%d %.2f | %.1f %.1f %.1f", __FUNCTION__, __LINE__, force, ang.x, ang.y, ang.z);
+			E->applyRelTorque(0, 0, -force);
+		}
+	}
+	else
+	{
+		Msg("%s:%d bone %s no element", __FUNCTION__, __LINE__, Visual()->dcast_PKinematics()->LL_BoneName_dbg(m_balance_bone));
+	}
 }
 
 /*----------------------------------------------------------------------------------------------------
@@ -2440,5 +2588,109 @@ float CCar::GetMaxCarryWeight()
 float CCar::GetMaxCarryWeightDef()
 {
 	return m_max_carry_weight_def;
+}
+
+/*----------------------------------------------------------------------------------------------------
+	Crew Manager
+----------------------------------------------------------------------------------------------------*/
+void CCar::CrewObstacleCallback(bool &do_colide, bool bo1, dContact &c, SGameMtl *material_1, SGameMtl *material_2)
+{
+	if (do_colide == false)
+		return;
+
+	dxGeomUserData *gd1 = bo1 ? PHRetrieveGeomUserData(c.geom.g1) : PHRetrieveGeomUserData(c.geom.g2);
+	dxGeomUserData *gd2 = bo1 ? PHRetrieveGeomUserData(c.geom.g2) : PHRetrieveGeomUserData(c.geom.g1);
+	CGameObject *obj = (gd1) ? smart_cast<CGameObject *>(gd1->ph_ref_object) : nullptr;
+	CGameObject *who = (gd2) ? smart_cast<CGameObject *>(gd2->ph_ref_object) : nullptr;
+	if (obj == NULL || who == NULL)
+		return;
+
+	CCar *car = smart_cast<CCar *>(obj);
+	if (car == NULL)
+		return;
+
+	if (car->Owner() == who)
+	{
+		do_colide = false;
+		return;
+	}
+
+	if (car->m_crew_manager->GetSeatByCrew(who))
+	{
+		do_colide = false;
+		return;
+	}
+}
+
+bool CCar::attach_Stalker(CGameObject *obj, LPCSTR sec)
+{
+	return m_crew_manager->AttachCrew(obj, sec);
+}
+
+void CCar::detach_Stalker(CGameObject *obj)
+{
+	m_crew_manager->DetachCrew(obj);
+}
+
+void CCar::SwitchCrewName(LPCSTR sec)
+{
+	if (!OwnerActor())
+		return;
+	m_crew_manager->AttachCrew(OwnerActor(), sec);
+}
+
+void CCar::SwitchCrewPrev()
+{
+	if (!OwnerActor())
+		return;
+	m_crew_manager->SwitchCrewToSeatPrev(OwnerActor(), sec);
+}
+
+void CCar::SwitchCrewNext()
+{
+	if (!OwnerActor())
+		return;
+	m_crew_manager->SwitchCrewToSeatNext(OwnerActor(), sec);
+}
+
+Fvector CCar::CrewExitPosition(CGameObject *obj)
+{
+	SSeat *seat = m_crew_manager->GetSeatByCrew(obj);
+	if (seat)
+	{
+		Fvector pos = Visual()->dcast_PKinematics()->LL_GetTransform(seat->seat_id).c;
+		Fvector vec = Fvector().set(seat->exit_position);
+		Fvector dir = Fvector().sub(vec, pos).normalize_safe();
+		if (Level().ObjectSpace.RayTest(pos, dir, pos.distance_to(vec), collide::rqtStatic, NULL, NULL) == FALSE)
+		{
+			/* FALSE means RayTest doesn't hit any obstacle. */
+			XFORM().transform_tiny(vec);
+			return vec;
+		}
+	}
+	return Fvector().set(Position());
+}
+
+LPCSTR CCar::GetSeatByCrew(CGameObject *obj)
+{
+	SSeat *seat = m_crew_manager->GetSeatByCrew(obj);
+	return (seat) ? seat->section : NULL;
+}
+
+CGameObject *CCar::GetCrewBySeat(LPCSTR sec)
+{
+	return m_crew_manager->GetCrewBySeat(sec);
+}
+
+void CCar::ActorPlayCrewAnimation()
+{
+	if (OwnerActor())
+	{
+		SSeat *seat = m_crew_manager->GetSeatByCrew(OwnerActor());
+		if (seat == NULL)
+			return;
+		OwnerActor()->Visual()->dcast_PKinematicsAnimated()->PlayCycle(seat->animation, FALSE);
+		OwnerActor()->on_animation_start(MotionID(), 0);
+	}
 }
 #endif

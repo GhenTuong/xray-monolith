@@ -259,7 +259,7 @@ void CUIGameSP::StartCarBody(CInventoryOwner* pActorInv, CInventoryBox* pBox) //
 	ActorMenu->ShowDialog(true);
 }
 
-#ifdef CAR_CHANGE
+#ifdef CCAR_CHANGE
 void CUIGameSP::StartCarBody(CInventoryOwner *pActorInv, CCar *pCar)
 {
 	if (TopInputReceiver())

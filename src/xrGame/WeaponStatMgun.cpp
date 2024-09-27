@@ -71,12 +71,10 @@ CWeaponStatMgun::CWeaponStatMgun()
 	m_turn_default = true;
 
 	m_actor_bone = BI_NONE;
-	m_actor_bone_offset.set(0, 0, 0);
 
 	m_exit_position.set(0, 0, 0);
-	m_exit_position_offset.set(0, 0, 0);
 	m_user_position.set(0, 0, 0);
-	m_user_position_offset.set(0, 0, 0);
+	m_user_position_enable = false;
 
 	m_camera_bone_def = BI_NONE;
 	m_camera_bone_aim = BI_NONE;
@@ -212,25 +210,25 @@ BOOL CWeaponStatMgun::net_Spawn(CSE_Abstract* DC)
 
 #ifdef CWEAPONSTATMGUN_CHANGE
 	CInifile *ini = K->LL_UserData();
-	m_min_gun_speed = deg2rad(READ_IF_EXISTS(ini, r_float, "mounted_weapon_definition", "min_gun_speed", 20.0F));
-	m_max_gun_speed = deg2rad(READ_IF_EXISTS(ini, r_float, "mounted_weapon_definition", "max_gun_speed", 20.0F));
-	m_drop_bone = ini->line_exist("config", "drop_bone") ? K->LL_BoneID(ini->r_string("config", "drop_bone")) : BI_NONE;
+	LPCSTR mwd = "mounted_weapon_definition";
 
-	m_actor_bone = ini->line_exist("config", "actor_bone") ? K->LL_BoneID(ini->r_string("config", "actor_bone")) : BI_NONE;
-	m_actor_bone_offset = READ_IF_EXISTS(pSettings, r_fvector3, cNameSect_str(), "actor_bone_offset", Fvector().set(0, 0, 0));
+	m_min_gun_speed = deg2rad(READ_IF_EXISTS(ini, r_float, mwd, "min_gun_speed", 10.0F));
+	m_max_gun_speed = deg2rad(READ_IF_EXISTS(ini, r_float, mwd, "max_gun_speed", 10.0F));
+	m_drop_bone = ini->line_exist(mwd, "drop_bone") ? K->LL_BoneID(ini->r_string(mwd, "drop_bone")) : BI_NONE;
 
-	m_exit_position = READ_IF_EXISTS(ini, r_fvector3, "config", "exit_position", Fvector().set(0, 0, 0));
-	m_exit_position_offset = READ_IF_EXISTS(pSettings, r_fvector3, cNameSect_str(), "exit_position_offset", Fvector().set(0, 0, 0));
-	m_user_position = READ_IF_EXISTS(ini, r_fvector3, "config", "user_position", Fvector().set(0, 0, 0));
-	m_user_position_offset = READ_IF_EXISTS(pSettings, r_fvector3, cNameSect_str(), "user_position_offset", Fvector().set(0, 0, 0));
+	m_actor_bone = ini->line_exist(mwd, "actor_bone") ? K->LL_BoneID(ini->r_string(mwd, "actor_bone")) : BI_NONE;
 
-	m_camera_bone_def = ini->line_exist("config", "camera_bone_def") ? K->LL_BoneID(ini->r_string("config", "camera_bone_def")) : BI_NONE;
-	m_camera_bone_aim = ini->line_exist("config", "camera_bone_aim") ? K->LL_BoneID(ini->r_string("config", "camera_bone_aim")) : BI_NONE;
-	m_zoom_factor_def = READ_IF_EXISTS(ini, r_float, "config", "zoom_factor_def", 1.0F);
-	m_zoom_factor_aim = READ_IF_EXISTS(ini, r_float, "config", "zoom_factor_aim", 1.0F);
-	m_camera_position = READ_IF_EXISTS(ini, r_fvector3, "config", "camera_position", Fvector().set(0, 0, 0));
+	m_exit_position = READ_IF_EXISTS(ini, r_fvector3, mwd, "exit_position", Fvector().set(0, 0, 0));
+	m_user_position = READ_IF_EXISTS(pSettings, r_fvector3, cNameSect_str(), "user_position", Fvector().set(0, 0, 0));
+	m_user_position_enable = !!READ_IF_EXISTS(pSettings, r_bool, cNameSect_str(), "user_position_enable", false);
 
-	m_animation = READ_IF_EXISTS(ini, r_string, "config", "animation", "norm_torso_m134_aim_0");
+	m_camera_bone_def = ini->line_exist(mwd, "camera_bone_def") ? K->LL_BoneID(ini->r_string(mwd, "camera_bone_def")) : BI_NONE;
+	m_camera_bone_aim = ini->line_exist(mwd, "camera_bone_aim") ? K->LL_BoneID(ini->r_string(mwd, "camera_bone_aim")) : BI_NONE;
+	m_zoom_factor_def = READ_IF_EXISTS(ini, r_float, mwd, "zoom_factor_def", 1.0F);
+	m_zoom_factor_aim = READ_IF_EXISTS(ini, r_float, mwd, "zoom_factor_aim", 1.0F);
+	m_camera_position = READ_IF_EXISTS(ini, r_fvector3, mwd, "camera_position", Fvector().set(0, 0, 0));
+
+	m_animation = READ_IF_EXISTS(ini, r_string, mwd, "animation", "norm_torso_m134_aim_0");
 
 	if (ini->line_exist("camera", "camera_first") && pSettings->section_exist(ini->r_string("camera", "camera_first")))
 	{
@@ -283,11 +281,6 @@ void CWeaponStatMgun::net_Destroy()
 			return;
 		}
 #endif
-		if (OwnerActor() && !OwnerActor()->g_Alive())
-		{
-			OwnerActor()->use_HolderEx(NULL, true);
-			return;
-		}
 	}
 
 	PPhysicsShell()->remove_ObjectContactCallback(IgnoreOwnerCallback);
@@ -641,8 +634,12 @@ void CWeaponStatMgun::detach_Actor()
 Fvector CWeaponStatMgun::ExitPosition()
 {
 #ifdef CWEAPONSTATMGUN_CHANGE
+	if (m_user_position_enable)
+	{
+		return Fvector().set(m_user_position);
+	}
 	Fvector vec;
-	XFORM().transform_tiny(vec, Fvector().add(m_exit_position, m_exit_position_offset));
+	XFORM().transform_tiny(vec, m_exit_position);
 	return vec;
 #else
 	Fvector pos; pos.set(0.f, 0.f, 0.f);
@@ -716,17 +713,11 @@ void CWeaponStatMgun::UpdateOwner()
 		return;
 	}
 #endif
-	if (OwnerActor() && !OwnerActor()->g_Alive())
-	{
-		OwnerActor()->use_HolderEx(NULL, true);
-		return;
-	}
 
 	if (m_actor_bone != BI_NONE)
 	{
 		IKinematics *K = Visual()->dcast_PKinematics();
 		Fmatrix xform = Fmatrix(K->LL_GetTransform(m_actor_bone));
-		xform.c.add(m_actor_bone_offset);
 		Owner()->XFORM().set(Fmatrix().mul_43(XFORM(), xform));
 	}
 	else
@@ -799,10 +790,6 @@ bool CWeaponStatMgun::InFieldOfView(Fvector pos)
 	Fvector dir = Fvector().sub(vec, Visual()->dcast_PKinematics()->LL_GetTransform(m_rotate_y_bone).c).normalize();
 	float h = dir.getH();
 	float p = dir.getP();
-#if 0
-	Msg("[%s] Y %.1f %.1f %.1f", cName().c_str(), rad2deg(h), rad2deg(-m_lim_y_rot.y), rad2deg(-m_lim_y_rot.x));
-	Msg("[%s] X %.1f %.1f %.1f", cName().c_str(), rad2deg(p), rad2deg(-m_lim_x_rot.y), rad2deg(-m_lim_x_rot.x));
-#endif
 	if (h < -m_lim_y_rot.y || -m_lim_y_rot.x < h)
 	{
 		return false;
@@ -814,10 +801,4 @@ bool CWeaponStatMgun::InFieldOfView(Fvector pos)
 	return true;
 }
 
-Fvector CWeaponStatMgun::UserPosition()
-{
-	Fvector vec;
-	XFORM().transform_tiny(vec, Fvector().add(m_user_position, m_user_position_offset));
-	return vec;
-}
 #endif

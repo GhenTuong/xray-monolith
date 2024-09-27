@@ -153,12 +153,10 @@ private:
 	bool m_turn_default;
 
 	u16 m_actor_bone;
-	Fvector m_actor_bone_offset;
 
 	Fvector m_exit_position;
-	Fvector m_exit_position_offset;
 	Fvector m_user_position;
-	Fvector m_user_position_offset;
+	bool m_user_position_enable;
 
 	u16 m_camera_bone_def;
 	u16 m_camera_bone_aim;
@@ -188,9 +186,16 @@ public:
 	float FireDispersionBase() { return fireDispersionBase; }
 	bool IsCameraZoom() { return m_zoom_status; }
 
-	Fvector UserPosition();
 	float FireDirDiff();
 	bool InFieldOfView(Fvector pos);
+
+/*--------------------------------------------------------------------------------------------------------------
+	Weapon
+CWeaponMagazined
+No time yet.
+--------------------------------------------------------------------------------------------------------------*/
+
+
 
 public:
 DECLARE_SCRIPT_REGISTER_FUNCTION

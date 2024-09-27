@@ -1464,7 +1464,6 @@ bool CActor::attach_Vehicle(CHolderCustom *object, bool bForce)
 			inventory().SetActiveSlot(NO_ACTIVE_SLOT);
 			SetWeaponHideState(INV_STATE_BLOCK_ALL, true);
 
-			// destroy actor character
 			character_physics_support()->movement()->DestroyCharacter();
 
 			m_holder = object;
@@ -1487,12 +1486,19 @@ bool CActor::attach_Vehicle(CHolderCustom *object, bool bForce)
 			CCar *car = smart_cast<CCar *>(object);
 			if (car)
 			{
-				u16 anim_type = car->DriverAnimationType();
-				SVehicleAnimCollection &anims = m_vehicle_anims->m_vehicles_type_collections[anim_type];
-				IKinematicsAnimated *V = smart_cast<IKinematicsAnimated *>(Visual());
-				R_ASSERT(V);
-				V->PlayCycle(anims.idles[0], FALSE);
-				CStepManager::on_animation_start(MotionID(), 0);
+				if (car->CrewManagerAvailable())
+				{
+					car->ActorPlayCrewAnimation();
+				}
+				else
+				{
+					u16 anim_type = car->DriverAnimationType();
+					SVehicleAnimCollection &anims = m_vehicle_anims->m_vehicles_type_collections[anim_type];
+					IKinematicsAnimated *V = smart_cast<IKinematicsAnimated *>(Visual());
+					R_ASSERT(V);
+					V->PlayCycle(anims.idles[0], FALSE);
+					CStepManager::on_animation_start(MotionID(), 0);
+				}
 			}
 
 #ifdef CWEAPONSTATMGUN_CHANGE

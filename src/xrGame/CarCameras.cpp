@@ -15,11 +15,56 @@
 #include "level.h"
 #include "../xrEngine/cameramanager.h"
 
+#ifdef CCAR_CHANGE
+#include "Actor.h"
+#include "../Include/xrRender/Kinematics.h"
+#endif
+
 bool CCar::HUDView() const
 {
 	return active_camera->tag == ectFirst;
 }
 
+#ifdef CCAR_CHANGE
+void CCar::cam_Update(float dt, float fov)
+{
+	Fvector P;
+	Fvector D;
+	D.set(0, 0, 0);
+	CCameraBase *cam = Camera();
+
+	switch (cam->tag)
+	{
+	case ectFirst:
+		XFORM().transform_tiny(P, Visual()->dcast_PKinematics()->LL_GetTransform(m_camera_bone).c);
+		if (OwnerActor())
+			OwnerActor()->Orientation().yaw = -cam->yaw;
+		if (OwnerActor())
+			OwnerActor()->Orientation().pitch = -cam->pitch;
+		break;
+	case ectChase:
+	{
+		XFORM().transform_tiny(P, m_camera_position);
+		if (OwnerActor())
+			OwnerActor()->Orientation().yaw = -cam->yaw;
+		if (OwnerActor())
+			OwnerActor()->Orientation().pitch = -cam->pitch;
+		break;
+	case ectFree:
+		XFORM().transform_tiny(P, m_camera_position);
+		if (OwnerActor())
+			OwnerActor()->Orientation().yaw = 0;
+		if (OwnerActor())
+			OwnerActor()->Orientation().pitch = 0;
+		break;
+	}
+	}
+
+	cam->f_fov = fov;
+	cam->Update(P, D);
+	Level().Cameras().UpdateFromCamera(cam);
+}
+#else
 void CCar::cam_Update(float dt, float fov)
 {
 #ifdef DEBUG
@@ -45,6 +90,7 @@ void CCar::cam_Update(float dt, float fov)
 	active_camera->Update(P, Da);
 	Level().Cameras().UpdateFromCamera(active_camera);
 }
+#endif
 
 void CCar::OnCameraChange(int type)
 {

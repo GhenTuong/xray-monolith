@@ -54,7 +54,7 @@ void CCar::script_register(lua_State* L)
 		.def("SetRPM", &CCar::SetRPM)
 		/*************************************************** added by Ray Twitty (aka Shadows) END ***************************************************/
 		
-#ifdef CAR_CHANGE
+#ifdef CCAR_CHANGE
 		.enum_("car_engine")
 		[
 			value("eCarEngineStart", int(CCar::eCarEngineStart)),
@@ -75,6 +75,11 @@ void CCar::script_register(lua_State* L)
 		.def("SetMaxCarryWeight", &CCar::SetMaxCarryWeight)
 		.def("GetMaxCarryWeight", &CCar::GetMaxCarryWeight)
 		.def("GetMaxCarryWeightDef", &CCar::GetMaxCarryWeightDef)
+/*----------------------------------------------------------------------------------------------------
+	Crew Manager
+----------------------------------------------------------------------------------------------------*/
+		.def("GetSeatByCrew", &CCar::GetSeatByCrew)
+		.def("GetCrewBySeat", &CCar::GetCrewBySeat)
 #endif
 		
 		.def(constructor<>())

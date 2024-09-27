@@ -133,7 +133,7 @@ void CCar::SCarSound::Update()
 		break;
 	case sndStoping: UpdateStalling();
 		break;
-#ifdef CAR_CHANGE
+#ifdef CCAR_CHANGE
 	case sndStartFail:
 		UpdateStartFail();
 		break;
@@ -209,7 +209,7 @@ void CCar::SCarSound::TransmissionSwitch()
 	}
 }
 
-#ifdef CAR_CHANGE
+#ifdef CCAR_CHANGE
 void CCar::SCarSound::StartFail()
 {
 	VERIFY(!physics_world()->Processing());

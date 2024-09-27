@@ -1722,15 +1722,9 @@ void CScriptGameObject::ForceSetPosition(Fvector pos, bool bActivate)
 		if (bActivate)
 			shell->Enable();
 
-#if 1
-		Fmatrix M = Fmatrix().set(object().XFORM());
-		M.translate_over(pos);
-		object().XFORM().set(M);
-#else
 		Fmatrix M = object().XFORM();
 		M.c = pos;
 		M.set(M);
-#endif
 
 		shell->SetGlTransformDynamic(M);
 		if (sh->character_physics_support())

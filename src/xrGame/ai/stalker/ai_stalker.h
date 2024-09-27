@@ -859,9 +859,8 @@ private:
 	CHolderCustom *m_holder = nullptr;
 public:
 	CHolderCustom *Holder() { return m_holder; }
-	bool attach_Holder(CHolderCustom *holder);
+	bool attach_Holder(CHolderCustom *holder, LPCSTR crew_section = NULL);
 	void detach_Holder();
-	bool use_HolderEx(CHolderCustom *holder, bool bForce);
 #endif
 
 public:

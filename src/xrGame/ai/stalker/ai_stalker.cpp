@@ -1590,10 +1590,23 @@ void CAI_Stalker::ChangeVisual(shared_str NewVisual)
 };
 
 #ifdef CHOLDERCUSTOM_CHANGE
-bool CAI_Stalker::attach_Holder(CHolderCustom *holder)
+bool CAI_Stalker::attach_Holder(CHolderCustom *holder, LPCSTR crew_section = NULL)
 {
 	if (holder == NULL)
 		return false;
+
+#ifdef CCAR_CHANGE
+	CCar *car = smart_cast<CCar *>(holder);
+	if (car)
+	{
+		if (car->attach_Stalker(cast_game_object(), crew_section))
+		{
+			m_holder = holder;
+			return true;
+		}
+		return false;
+	}
+#endif
 
 	CWeaponStatMgun *stm = smart_cast<CWeaponStatMgun *>(holder);
 	if (stm)
@@ -1623,6 +1636,21 @@ void CAI_Stalker::detach_Holder()
 	if (m_holder == nullptr)
 		return;
 
+#ifdef CCAR_CHANGE
+	CCar *car = smart_cast<CCar *>(m_holder);
+	if (car)
+	{
+		if (animation_movement_controlled())
+		{
+			destroy_anim_mov_ctrl();
+		}
+		ForceTransform(Fmatrix().set(car->XFORM()).translate_over(car->CrewExitPosition(cast_game_object())));
+		car->detach_Stalker(cast_game_object());
+		m_holder = nullptr;
+		return;
+	}
+#endif
+
 	CWeaponStatMgun *stm = smart_cast<CWeaponStatMgun *>(m_holder);
 	if (stm)
 	{
@@ -1630,19 +1658,10 @@ void CAI_Stalker::detach_Holder()
 		{
 			destroy_anim_mov_ctrl();
 		}
-		ForceTransform(Fmatrix().set(stm->XFORM()).translate_over(stm->UserPosition()));
+		ForceTransform(Fmatrix().set(stm->XFORM()).translate_over(stm->ExitPosition()));
 		stm->detach_Actor();
+		m_holder = nullptr;
+		return;
 	}
-	m_holder = nullptr;
-}
-
-bool CAI_Stalker::use_HolderEx(CHolderCustom *holder, bool bForce)
-{
-	if (holder)
-	{
-		return attach_Holder(holder);
-	}
-	detach_Holder();
-	return true;
 }
 #endif

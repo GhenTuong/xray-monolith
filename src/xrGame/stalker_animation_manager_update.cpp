@@ -223,7 +223,11 @@ void CStalkerAnimationManager::update_impl()
 		return;
 
 #ifdef CHOLDERCUSTOM_CHANGE
-
+	if (!!object().Holder())
+	{
+		/* Play animation use car. */
+		
+	}
 #endif
 
 	update_tracks();

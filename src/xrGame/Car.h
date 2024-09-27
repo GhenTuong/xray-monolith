@@ -35,15 +35,17 @@ struct dSurfaceParameters;
 	#include "PHDebug.h"
 #endif
 
-#ifndef CAR_CHANGE
-#define CAR_CHANGE
+#ifndef CCAR_CHANGE
+#define CCAR_CHANGE
 #endif
 
-#ifdef CAR_CHANGE
+#ifdef CCAR_CHANGE
 #include "gameobject.h"
 #include "script_game_object.h"
 #include "script_hit.h"
 #include "HUDManager.h"
+
+#include "CarCrewManager.h"
 #endif
 
 class CScriptEntityAction;
@@ -391,7 +393,7 @@ public:
 			sndStalling,
 			sndStoping,
 			sndStarting,
-#ifdef CAR_CHANGE
+#ifdef CCAR_CHANGE
 			sndStartFail,
 #endif
 			sndDrive
@@ -413,7 +415,7 @@ public:
 		void Stall();
 		void Drive();
 		void TransmissionSwitch();
-#ifdef CAR_CHANGE
+#ifdef CCAR_CHANGE
 		void StartFail();
 		void UpdateStartFail();
 #endif
@@ -717,7 +719,7 @@ private:
 	virtual void reinit();
 	virtual void reload(LPCSTR section);
 
-#ifdef CAR_CHANGE
+#ifdef CCAR_CHANGE
 public:
 #endif
 	virtual CGameObject* cast_game_object() { return this; }
@@ -731,24 +733,34 @@ public:
 private:
 	car_memory* m_memory;
 
-#ifdef CAR_CHANGE
+#ifdef CCAR_CHANGE
 private:
+	CCarCrewManager *m_crew_manager;
+
 	LPCSTR m_on_before_hit_callback;
 	LPCSTR m_on_before_use_callback;
 	LPCSTR m_on_before_start_engine_callback;
-
 	u32 m_engine_switch_state_delay;
+
+	u16 m_camera_bone;
 
 	float m_max_power_def;
 	float m_fuel_tank_def;
 	float m_fuel_consumption_def;
 
 public:
-	enum
+	enum ECarEngine
 	{
 		eCarEngineStart = 0,
 		eCarEngineStartFail,
 		eCarEngineDontStart
+	};
+
+	enum ECarCrew
+	{
+		eCarCrewMember = 0,
+		eCarCrewDriver,
+		eCarCrewGunner
 	};
 
 public:
@@ -771,6 +783,10 @@ private:
 
 	float m_max_carry_weight_def;
 
+	u16 m_balance_bone;
+	float m_balance_factor;
+	void SelfBalanceUpdate();
+
 public:
 	bool IsBoneInventory(u16 bone_id);
 	bool HasInventory();
@@ -779,6 +795,21 @@ public:
 	void SetMaxCarryWeight(float value);
 	float GetMaxCarryWeight();
 	float GetMaxCarryWeightDef();
+
+public:
+	LPCSTR m_actor_select_seat; /* Hack. Use() gets the seat actor is looking at. attach_Actor() attach actor to seat. */
+
+	static void CrewObstacleCallback(bool &do_colide, bool bo1, dContact &c, SGameMtl *material_1, SGameMtl *material_2);
+	bool CrewManagerAvailable() { return m_crew_manager->Available(); }
+	bool attach_Stalker(CGameObject *obj, LPCSTR sec);
+	void detach_Stalker(CGameObject *obj);
+	void SwitchCrewName(LPCSTR sec);
+	void SwitchCrewPrev();
+	void SwitchCrewNext();
+	Fvector CrewExitPosition(CGameObject *obj);
+	LPCSTR GetSeatByCrew(CGameObject *obj);
+	CGameObject *GetCrewBySeat(LPCSTR sec);
+	void ActorPlayCrewAnimation();
 #endif
 
 public:
