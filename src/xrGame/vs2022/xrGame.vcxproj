@@ -905,6 +905,7 @@
     <ClInclude Include="..\CameraRecoil.h" />
     <ClInclude Include="..\CaptureBoneCallback.h" />
     <ClInclude Include="..\Car.h" />
+    <ClInclude Include="..\CarCrewManager.h" />
     <ClInclude Include="..\CarDamageParticles.h" />
     <ClInclude Include="..\CarLights.h" />
     <ClInclude Include="..\CarWeapon.h" />
@@ -2578,6 +2579,7 @@
     <ClCompile Include="..\cameralook.cpp" />
     <ClCompile Include="..\Car.cpp" />
     <ClCompile Include="..\CarCameras.cpp" />
+    <ClCompile Include="..\CarCrewManager.cpp" />
     <ClCompile Include="..\CarDamageParticles.cpp" />
     <ClCompile Include="..\CarDoors.cpp" />
     <ClCompile Include="..\CarExhaust.cpp" />

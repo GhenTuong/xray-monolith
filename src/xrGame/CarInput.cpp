@@ -22,6 +22,20 @@ void CCar::OnMouseMove(int dx, int dy)
 {
 	if (Remote()) return;
 
+#ifdef CCAR_CHANGE
+	CCameraBase *cam = Camera();
+	float scale = (cam->f_fov / g_fov) * psMouseSens * psMouseSensScale / 50.f;
+	if (dx)
+	{
+		float d = float(dx) * scale;
+		cam->Move((d < 0) ? kLEFT : kRIGHT, _abs(d));
+	}
+	if (dy)
+	{
+		float d = ((psMouseInvert.test(1)) ? -1 : 1) * float(dy) * scale * 3.f / 4.f;
+		cam->Move((d > 0) ? kUP : kDOWN, _abs(d));
+	}
+#else
 	CCameraBase* C = active_camera;
 	float scale = (C->f_fov / g_fov) * psMouseSens * psMouseSensScale / 50.f;
 	if (dx)
@@ -44,6 +58,7 @@ void CCar::OnMouseMove(int dx, int dy)
 		pos.mad(cam_dir, RQ.range>3.f ? RQ.range : 30.f);
 		SetParam(CCarWeapon::eWpnDesiredPos, pos);
 	};
+#endif
 }
 
 bool CCar::bfAssignMovement(CScriptEntityAction* tpEntityAction)
@@ -143,6 +158,80 @@ void CCar::OnKeyboardPress(int cmd)
 {
 	if (Remote()) return;
 
+#ifdef CCAR_CHANGE
+	switch (cmd)
+	{
+	case kCAM_1:
+		OnCameraChange(ectFirst);
+		break;
+	case kCAM_2:
+		OnCameraChange(ectChase);
+		break;
+	case kCAM_3:
+		OnCameraChange(ectFree);
+		break;
+	case kACCEL:
+		if (GetCrewType(OwnerActor(), NULL) == eCarCrewDriver)
+			TransmissionUp();
+		break;
+	case kCROUCH:
+		if (GetCrewType(OwnerActor(), NULL) == eCarCrewDriver)
+			TransmissionDown();
+		break;
+	case kFWD:
+		if (GetCrewType(OwnerActor(), NULL) == eCarCrewDriver)
+			PressForward();
+		break;
+	case kBACK:
+		if (GetCrewType(OwnerActor(), NULL) == eCarCrewDriver)
+			PressBack();
+		break;
+	case kR_STRAFE:
+		if (GetCrewType(OwnerActor(), NULL) == eCarCrewDriver)
+		{
+			PressRight();
+			OwnerActor()->steer_Vehicle(1);
+		}
+		break;
+	case kL_STRAFE:
+		if (GetCrewType(OwnerActor(), NULL) == eCarCrewDriver)
+		{
+			PressLeft();
+			OwnerActor()->steer_Vehicle(-1);
+		}
+		break;
+	case kJUMP:
+		if (GetCrewType(OwnerActor(), NULL) == eCarCrewDriver)
+			PressBreaks();
+		break;
+	case kDETECTOR:
+		if (GetCrewType(OwnerActor(), NULL) == eCarCrewDriver)
+			SwitchEngine();
+		break;
+	case kWPN_FUNC:
+		break;
+	case kTORCH:
+		if (GetCrewType(OwnerActor(), NULL) == eCarCrewDriver)
+			m_lights.SwitchHeadLights();
+		break;
+	case kUSE:
+		break;
+	case kWPN_FIRE:
+		if (GetCrewType(OwnerActor(), NULL) == eCarCrewGunner && HasWeapon())
+			m_car_weapon->Action(CCarWeapon::eWpnFire, 1);
+		break;
+	case kWPN_ZOOM:
+		if (!psActorFlags.test(AF_AIM_TOGGLE))
+		{
+			m_zoom_status = true;
+		}
+		else
+		{
+			m_zoom_status = (m_zoom_status) ? false : true;
+		}
+		break;
+	};
+#else
 	switch (cmd)
 	{
 	case kCAM_1: OnCameraChange(ectFirst);
@@ -178,11 +267,56 @@ void CCar::OnKeyboardPress(int cmd)
 	case kUSE: break;
 	case kWPN_FIRE: if (HasWeapon()) m_car_weapon->Action(CCarWeapon::eWpnFire, 1); break;
 	};
+#endif
 }
 
 void CCar::OnKeyboardRelease(int cmd)
 {
 	if (Remote()) return;
+
+#ifdef CCAR_CHANGE
+	switch (cmd)
+	{
+	case kACCEL:
+		break;
+	case kFWD:
+		if (GetCrewType(OwnerActor(), NULL) == eCarCrewDriver)
+		ReleaseForward();
+		break;
+	case kBACK:
+		if (GetCrewType(OwnerActor(), NULL) == eCarCrewDriver)
+		ReleaseBack();
+		break;
+	case kL_STRAFE:
+		if (GetCrewType(OwnerActor(), NULL) == eCarCrewDriver)
+		{
+			ReleaseLeft();
+			OwnerActor()->steer_Vehicle(0);
+		}
+		break;
+	case kR_STRAFE:
+		if (GetCrewType(OwnerActor(), NULL) == eCarCrewDriver)
+		{
+			ReleaseRight();
+			OwnerActor()->steer_Vehicle(0);
+		}
+		break;
+	case kJUMP:
+		if (GetCrewType(OwnerActor(), NULL) == eCarCrewDriver)
+			ReleaseBreaks();
+		break;
+	case kWPN_FIRE:
+		if (GetCrewType(OwnerActor(), NULL) == eCarCrewGunner && HasWeapon())
+			m_car_weapon->Action(CCarWeapon::eWpnFire, 0);
+		break;
+	case kWPN_ZOOM:
+		if (!psActorFlags.test(AF_AIM_TOGGLE))
+		{
+			m_zoom_status = false;
+		}
+		break;
+	};
+#else
 	switch (cmd)
 	{
 	case kACCEL: break;
@@ -201,6 +335,7 @@ void CCar::OnKeyboardRelease(int cmd)
 	case kWPN_FIRE: if (HasWeapon()) m_car_weapon->Action(CCarWeapon::eWpnFire, 0);
 		break;
 	};
+#endif
 }
 
 void CCar::OnKeyboardHold(int cmd)

@@ -39,6 +39,8 @@ BONE_P_MAP CCar::bone_map = BONE_P_MAP();
 #ifdef CCAR_CHANGE
 #include "UIGameSP.h"
 #include "UIGameCustom.h"
+
+#include "CarCrewManager.h"
 #endif
 
 CCar::CCar()
@@ -105,13 +107,12 @@ CCar::CCar()
 #ifdef CCAR_CHANGE
 	m_crew_manager = xr_new<CCarCrewManager>(this);
 	m_actor_select_seat = NULL;
+	m_is_camera_zoom = false;
 
 	m_on_before_hit_callback = NULL;
 	m_on_before_use_callback = NULL;
 	m_on_before_start_engine_callback = NULL;
 	m_engine_switch_state_delay = 0;
-
-	m_camera_bone = BI_NONE;
 
 	m_max_power_def = 0.0f;
 	m_fuel_tank_def = 0.0f;
@@ -463,6 +464,11 @@ void CCar::UpdateEx(float fov)
 
 	//	Log("UpdateCL",Device.dwFrame);
 	//XFORM().set(m_pPhysicsShell->mXFORM);
+
+#ifdef CCAR_CHANGE
+	/* Move to VisualUpdate() to update camera first and update weapon right after. Doing this avoid flickering. */
+	VisualUpdate(fov);
+#else
 	VisualUpdate(fov);
 	if (OwnerActor() && OwnerActor()->IsMyCamera())
 	{
@@ -471,6 +477,7 @@ void CCar::UpdateEx(float fov)
 		if (eacFirstEye == active_camera->tag && !Level().Cameras().GetCamEffector(cefDemo))
 			OwnerActor()->Cameras().ApplyDevice(VIEWPORT_NEAR);
 	}
+#endif
 }
 
 BOOL CCar::AlwaysTheCrow()
@@ -508,6 +515,43 @@ void CCar::VisualUpdate(float fov)
 	}
 
 	m_car_sound->Update();
+
+#ifdef CCAR_CHANGE
+	if (m_pPhysicsShell && m_pPhysicsShell->isEnabled())
+	{
+		if (CrewManagerAvailable())
+		{
+			m_crew_manager->Update();
+		}
+		else
+		{
+		}
+	}
+
+	if (OwnerActor() && OwnerActor()->IsMyCamera())
+	{
+		cam_Update(Device.fTimeDelta, fov);
+		OwnerActor()->Cameras().UpdateFromCamera(Camera());
+		if (eacFirstEye == active_camera->tag && !Level().Cameras().GetCamEffector(cefDemo))
+			OwnerActor()->Cameras().ApplyDevice(VIEWPORT_NEAR);
+
+		if (m_car_weapon && m_car_weapon->IsActive())
+		{
+			if (IsCameraZoom())
+			{
+				Fvector dir = Camera()->Direction();
+				SetParam(CCarWeapon::eWpnDesiredDir, Fvector2().set(dir.getH(), dir.getP()));
+			}
+			else
+			{
+				Fvector pos = Camera()->Position();
+				Fvector dir = Camera()->Direction();
+				collide::rq_result &R = HUD().GetCurrentRayQuery();
+				SetParam(CCarWeapon::eWpnDesiredPos, Fvector().mad(pos, dir, (R.range > 3.f) ? R.range : 30.f));
+			}
+		}
+	}
+#else
 	if (Owner())
 	{
 		if (m_pPhysicsShell->isEnabled())
@@ -532,6 +576,7 @@ void CCar::VisualUpdate(float fov)
 		}
 		*/
 	}
+#endif
 
 	UpdateExhausts();
 	m_lights.Update();
@@ -705,7 +750,7 @@ bool CCar::attach_Actor(CGameObject *actor)
 		bool is_attach_crew_success = false;
 		if (m_actor_select_seat)
 		{
-			is_attach_crew_success = m_crew_manager->AttachCrew(Owner(), m_actor_select_seat)
+			is_attach_crew_success = m_crew_manager->AttachCrew(Owner(), m_actor_select_seat);
 		}
 		else
 		{
@@ -976,9 +1021,6 @@ void CCar::ParseDefinitions()
 	{
 		m_on_before_start_engine_callback = READ_IF_EXISTS(pSettings, r_string, cNameSect_str(), "on_before_start_engine", "");
 	}
-
-	m_camera_bone = ini->line_exist("config", "camera_bone") ? K->LL_BoneID(ini->r_string("config", "camera_bone")) : BI_NONE;
-	m_camera_position = READ_IF_EXISTS(ini, r_fvector3, "config", "camera_position", Fvector().set(0, 0, 0));
 
 	if (ini->section_exist("inventory"))
 	{
@@ -2124,6 +2166,10 @@ void CCar::CarExplode()
 		if (A->g_Alive() <= 0.f)A->character_physics_support()->movement()->DestroyCharacter();
 	}
 
+#ifdef CCAR_CHANGE
+	m_crew_manager->DismountAll();
+#endif
+
 	if (CPHDestroyable::CanDestroy())
 		CPHDestroyable::Destroy(ID(), "physic_destroyable_object");
 }
@@ -2622,35 +2668,15 @@ void CCar::CrewObstacleCallback(bool &do_colide, bool bo1, dContact &c, SGameMtl
 	}
 }
 
-bool CCar::attach_Stalker(CGameObject *obj, LPCSTR sec)
+LPCSTR CCar::GetSeatByCrew(CGameObject *obj)
 {
-	return m_crew_manager->AttachCrew(obj, sec);
+	SSeat *seat = m_crew_manager->GetSeatByCrew(obj);
+	return (seat) ? seat->section : NULL;
 }
 
-void CCar::detach_Stalker(CGameObject *obj)
+CGameObject *CCar::GetCrewBySeat(LPCSTR sec)
 {
-	m_crew_manager->DetachCrew(obj);
-}
-
-void CCar::SwitchCrewName(LPCSTR sec)
-{
-	if (!OwnerActor())
-		return;
-	m_crew_manager->AttachCrew(OwnerActor(), sec);
-}
-
-void CCar::SwitchCrewPrev()
-{
-	if (!OwnerActor())
-		return;
-	m_crew_manager->SwitchCrewToSeatPrev(OwnerActor(), sec);
-}
-
-void CCar::SwitchCrewNext()
-{
-	if (!OwnerActor())
-		return;
-	m_crew_manager->SwitchCrewToSeatNext(OwnerActor(), sec);
+	return m_crew_manager->GetCrewBySeat(m_crew_manager->GetSeatByName(sec));
 }
 
 Fvector CCar::CrewExitPosition(CGameObject *obj)
@@ -2671,17 +2697,6 @@ Fvector CCar::CrewExitPosition(CGameObject *obj)
 	return Fvector().set(Position());
 }
 
-LPCSTR CCar::GetSeatByCrew(CGameObject *obj)
-{
-	SSeat *seat = m_crew_manager->GetSeatByCrew(obj);
-	return (seat) ? seat->section : NULL;
-}
-
-CGameObject *CCar::GetCrewBySeat(LPCSTR sec)
-{
-	return m_crew_manager->GetCrewBySeat(sec);
-}
-
 void CCar::ActorPlayCrewAnimation()
 {
 	if (OwnerActor())
@@ -2693,4 +2708,31 @@ void CCar::ActorPlayCrewAnimation()
 		OwnerActor()->on_animation_start(MotionID(), 0);
 	}
 }
+
+u16 CCar::GetCrewType(CGameObject *obj, LPCSTR sec)
+{
+	SSeat *seat = (obj) ? m_crew_manager->GetSeatByCrew(obj) : m_crew_manager->GetSeatByName(sec);
+	return (seat) ? seat->type : eCarCrewNone;
+}
+
+bool CCar::CrewManagerAvailable()
+{
+	return m_crew_manager->Available();
+}
+
+bool CCar::attach_Stalker(CGameObject *obj, LPCSTR sec)
+{
+	return m_crew_manager->AttachCrew(obj, sec);
+}
+
+void CCar::detach_Stalker(CGameObject *obj)
+{
+	m_crew_manager->DetachCrew(obj);
+}
+
+void CCar::ChangeSeat(CGameObject *obj, LPCSTR sec)
+{
+	m_crew_manager->ChangeSeat(obj, sec);
+}
+
 #endif

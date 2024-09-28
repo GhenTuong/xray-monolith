@@ -46,6 +46,8 @@ struct dSurfaceParameters;
 #include "HUDManager.h"
 
 #include "CarCrewManager.h"
+
+class CCarCrewManager;
 #endif
 
 class CScriptEntityAction;
@@ -117,7 +119,11 @@ private:
 	////////////////////////////////////////////////////////////////////////
 	CCarDamageParticles m_damage_particles;
 	///////////////////////////////////////////////////////////////////////
+#ifdef CCAR_CHANGE
+public:
+#else
 protected:
+#endif
 	enum ECarCamType
 	{
 		ectFirst = 0,
@@ -735,8 +741,6 @@ private:
 
 #ifdef CCAR_CHANGE
 private:
-	CCarCrewManager *m_crew_manager;
-
 	LPCSTR m_on_before_hit_callback;
 	LPCSTR m_on_before_use_callback;
 	LPCSTR m_on_before_start_engine_callback;
@@ -756,13 +760,6 @@ public:
 		eCarEngineDontStart
 	};
 
-	enum ECarCrew
-	{
-		eCarCrewMember = 0,
-		eCarCrewDriver,
-		eCarCrewGunner
-	};
-
 public:
 	virtual bool is_ai_obstacle() const;
 
@@ -774,9 +771,9 @@ public:
 
 	void StartEngineForce();
 
-	/*----------------------------------------------------------------------------------------------------
-		Inventory
-	----------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------
+	Inventory
+----------------------------------------------------------------------------------------------------*/
 private:
 	bool m_inventory_flag;
 	xr_vector<u16> m_inventory_bone;
@@ -796,20 +793,37 @@ public:
 	float GetMaxCarryWeight();
 	float GetMaxCarryWeightDef();
 
-public:
+/*----------------------------------------------------------------------------------------------------
+	Crew Manager
+----------------------------------------------------------------------------------------------------*/
+private:
+	CCarCrewManager *m_crew_manager;
 	LPCSTR m_actor_select_seat; /* Hack. Use() gets the seat actor is looking at. attach_Actor() attach actor to seat. */
+	bool m_zoom_status;
+
+public:
+	enum ECarCrew
+	{
+		eCarCrewNone = 0,
+		eCarCrewDriver,
+		eCarCrewGunner,
+		eCarCrewMember
+	};
 
 	static void CrewObstacleCallback(bool &do_colide, bool bo1, dContact &c, SGameMtl *material_1, SGameMtl *material_2);
-	bool CrewManagerAvailable() { return m_crew_manager->Available(); }
-	bool attach_Stalker(CGameObject *obj, LPCSTR sec);
-	void detach_Stalker(CGameObject *obj);
-	void SwitchCrewName(LPCSTR sec);
-	void SwitchCrewPrev();
-	void SwitchCrewNext();
-	Fvector CrewExitPosition(CGameObject *obj);
 	LPCSTR GetSeatByCrew(CGameObject *obj);
 	CGameObject *GetCrewBySeat(LPCSTR sec);
+	Fvector CrewExitPosition(CGameObject *obj);
 	void ActorPlayCrewAnimation();
+
+	u16 GetCrewType(CGameObject *obj, LPCSTR sec);
+
+	bool CrewManagerAvailable();
+	bool attach_Stalker(CGameObject *obj, LPCSTR sec);
+	void detach_Stalker(CGameObject *obj);
+	void ChangeSeat(CGameObject *obj, LPCSTR sec);
+
+	bool IsCameraZoom() { return m_zoom_status; }
 #endif
 
 public:

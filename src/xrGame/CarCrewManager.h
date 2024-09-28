@@ -28,7 +28,7 @@ struct SSeat
 	float zoom_factor_aim;
 	SSeat(CCar *obj);
 	~SSeat();
-	Camera() { return camera; }
+	CCameraBase *Camera() { return camera; }
 };
 
 class CCarCrewManager
@@ -38,21 +38,20 @@ private:
 	xr_vector<SSeat> m_seat;
 	xr_map<CGameObject *, SSeat *> m_crew;
 
+public:
 	CCarCrewManager(CCar *obj);
 	~CCarCrewManager();
-
-public:
 	void Load();
 	bool Available();
+	void Update();
+	void DismountAll();
 
 	SSeat *GetSeatEmpty();
 	SSeat *GetSeatByName(LPCSTR sec);
 	SSeat *GetSeatByCrew(CGameObject *crew);
-	SSeat *GetSeatByDoor(u16 door);
+	SSeat *GetSeatByDoor(u16 bone_id);
 	CGameObject *GetCrewBySeat(SSeat *seat);
 	bool AttachCrew(CGameObject *obj, LPCSTR sec);
 	void DetachCrew(CGameObject *obj);
-
-	bool SwitchCrewToSeatPrev(CGameObject *crew);
-	bool SwitchCrewToSeatNext(CGameObject *crew);
+	void ChangeSeat(CGameObject *obj, LPCSTR sec);
 };

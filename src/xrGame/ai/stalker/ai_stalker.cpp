@@ -1590,16 +1590,19 @@ void CAI_Stalker::ChangeVisual(shared_str NewVisual)
 };
 
 #ifdef CHOLDERCUSTOM_CHANGE
-bool CAI_Stalker::attach_Holder(CHolderCustom *holder, LPCSTR crew_section = NULL)
+bool CAI_Stalker::attach_Holder(CHolderCustom *holder)
 {
 	if (holder == NULL)
+		return false;
+
+	if (m_holder)
 		return false;
 
 #ifdef CCAR_CHANGE
 	CCar *car = smart_cast<CCar *>(holder);
 	if (car)
 	{
-		if (car->attach_Stalker(cast_game_object(), crew_section))
+		if (car->attach_Stalker(cast_game_object(), NULL))
 		{
 			m_holder = holder;
 			return true;
@@ -1613,16 +1616,16 @@ bool CAI_Stalker::attach_Holder(CHolderCustom *holder, LPCSTR crew_section = NUL
 	{
 		if (stm->attach_Actor(cast_game_object()))
 		{
+			/*
+						LPCSTR anim = m_holder->Animation(cast_game_object());
+						if (anim && strlen(anim))
+						{
+							IKinematicsAnimated *V = smart_cast<IKinematicsAnimated *>(Visual());
+							if (V)
+								V->PlayCycle(anim, FALSE);
+						}
+			*/
 			m_holder = holder;
-/*
-			LPCSTR anim = m_holder->Animation(cast_game_object());
-			if (anim && strlen(anim))
-			{
-				IKinematicsAnimated *V = smart_cast<IKinematicsAnimated *>(Visual());
-				if (V)
-					V->PlayCycle(anim, FALSE);
-			}
-*/
 			return true;
 		}
 		return false;
@@ -1663,5 +1666,15 @@ void CAI_Stalker::detach_Holder()
 		m_holder = nullptr;
 		return;
 	}
+}
+
+bool CAI_Stalker::use_HolderEx(CHolderCustom *object)
+{
+	if (object)
+	{
+		return attach_Holder(object);
+	}
+	detach_Holder();
+	return true;
 }
 #endif
