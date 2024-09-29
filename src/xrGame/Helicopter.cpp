@@ -68,10 +68,15 @@ CHelicopter::CHelicopter()
 	m_control_pit = eControlPit_NA;
 	m_control_rol = eControlRol_NA;
 
-	m_control_ele_scale = 1.0F;
-	m_control_yaw_scale = 1.0F;
-	m_control_pit_scale = 1.0F;
-	m_control_rol_scale = 1.0F;
+	m_control_ele_max = 1.0F;
+	m_control_yaw_max = 1.0F;
+	m_control_pit_max = 1.0F;
+	m_control_rol_max = 1.0F;
+
+	m_control_ele_inc = 1.0F;
+	m_control_yaw_inc = 1.0F;
+	m_control_pit_inc = 1.0F;
+	m_control_rol_inc = 1.0F;
 
 	bone_map = BONE_P_MAP();
 	m_body_bone = BI_NONE;
@@ -193,10 +198,15 @@ void CHelicopter::Load(LPCSTR section)
 #ifdef CHELICOPTER_CHANGE
 	Msg("%s:%d", __FUNCTION__, __LINE__);
 	m_drone_flag = !!READ_IF_EXISTS(pSettings, r_bool, cNameSect_str(), "is_drone", false);
-	m_control_ele_scale = READ_IF_EXISTS(pSettings, r_float, cNameSect_str(), "control_ele_scale", 1.0F);
-	m_control_yaw_scale = READ_IF_EXISTS(pSettings, r_float, cNameSect_str(), "control_yaw_scale", 1.0F);
-	m_control_pit_scale = READ_IF_EXISTS(pSettings, r_float, cNameSect_str(), "control_pit_scale", 1.0F);
-	m_control_rol_scale = READ_IF_EXISTS(pSettings, r_float, cNameSect_str(), "control_rol_scale", 1.0F);
+	m_control_ele_max = READ_IF_EXISTS(pSettings, r_float, cNameSect_str(), "control_ele_max", 1.0F);
+	m_control_yaw_max = deg2rad(READ_IF_EXISTS(pSettings, r_float, cNameSect_str(), "control_yaw_max", 1.0F));
+	m_control_pit_max = READ_IF_EXISTS(pSettings, r_float, cNameSect_str(), "control_pit_max", 1.0F);
+	m_control_rol_max = READ_IF_EXISTS(pSettings, r_float, cNameSect_str(), "control_rol_max", 1.0F);
+
+	m_control_ele_inc = READ_IF_EXISTS(pSettings, r_float, cNameSect_str(), "control_ele_inc", 1.0F);
+	m_control_yaw_inc = deg2rad(READ_IF_EXISTS(pSettings, r_float, cNameSect_str(), "control_yaw_inc", 1.0F));
+	m_control_pit_inc = READ_IF_EXISTS(pSettings, r_float, cNameSect_str(), "control_pit_inc", 1.0F);
+	m_control_rol_inc = READ_IF_EXISTS(pSettings, r_float, cNameSect_str(), "control_rol_inc", 1.0F);
 
 	if (pSettings->line_exist(cNameSect_str(), "on_before_hit"))
 	{
@@ -1171,52 +1181,12 @@ void CHelicopter::PhDataUpdate(float step)
 
 	if (GetEngineOn())
 	{
-		CPhysicsElement *E = (m_body_bone != BI_NONE) ? bone_map.find(m_body_bone)->second.element : NULL;
-		CPhysicsElement *H = (m_hang_bone != BI_NONE) ? bone_map.find(m_hang_bone)->second.element : NULL;
-		if (E == NULL)
-			return;
-
-		float mass = m_pPhysicsShell->getMass();
-
+		CPhysicsElement *E = m_pPhysicsShell->get_ElementByStoreOrder(0);
 		{
-			{
-#if 1
-				Fvector vec = Fvector().set(0.0F, 1.0F, 0.0F);
-				// XFORM().transform_dir(vec);
-				// Msg("m=%f | %f,%f,%f", mass, vec.x, vec.y, vec.z);
-				E->applyForce(vec, (mass + H->getMass()) * EffectiveGravity());
-				H->applyForce(Fvector().set(0.0F, -1.0F, 0.0F), H->getMass() * EffectiveGravity());
-#else
-				H->applyForce(Fvector().set(0.0F, -1.0F, 0.0F), H->getMass() * EffectiveGravity());
-
-				float force = (mass + H->getMass()) * EffectiveGravity();
-				Fvector vec = Fvector().set(0.0F, 1.0F, 0.0F);
-				// XFORM().transform_dir(vec);
-				// Msg("m=%f | %f,%f,%f", mass, vec.x, vec.y, vec.z);
-				E->applyForce(vec.normalize(), force);
-#endif
-			}
-#if 1
-#else
-			float kp = XFORM().k.getP();
-			if (_abs(kp) > 0.01)
-			{
-				float force = mass * 0.5 * (kp / PI_DIV_2);
-				Fvector vec = Fvector().set(1.0F, 0.0F, 0.0F);
-				XFORM().transform_dir(vec);
-				Msg("m=%f k=%f f=%f | %f,%f,%f", mass, rad2deg(kp), force, vec.x, vec.y, vec.z);
-				E->applyTorque(vec.normalize(), force);
-			}
-			float ip = XFORM().i.getP();
-			if (_abs(ip) > 0.01)
-			{
-				float force = mass * 0.5 * (ip / PI_DIV_2);
-				Fvector vec = Fvector().set(0.0F, 0.0F, 1.0F);
-				XFORM().transform_dir(vec);
-				Msg("m=%f i=%f f=%f | %f,%f,%f", mass, rad2deg(ip), force, vec.x, vec.y, vec.z);
-				E->applyTorque(vec.normalize(), force);
-			}
-#endif
+			Fvector vec = Fvector().set(0.0F, 1.0F, 0.0F);
+			// XFORM().transform_dir(vec);
+			// Msg("m=%f | %f,%f,%f", mass, vec.x, vec.y, vec.z);
+			E->applyForce(vec, m_pPhysicsShell->getMass() * EffectiveGravity());
 		}
 
 		Fvector velocity;
@@ -1227,11 +1197,12 @@ void CHelicopter::PhDataUpdate(float step)
 		{
 		case eControlEle_NA:
 		{
-			if (_abs(velocity.y) > EPS_L)
+			if (_abs(velocity.y) > 0.01)
 			{
-				float force = __min(_abs(velocity.y), m_control_ele_scale) * m_pPhysicsShell->getMass();
+				float force = __min(_abs(velocity.y), m_control_ele_max) * m_pPhysicsShell->getMass();
 				Fvector vec = Fvector().set(0.0F, 1.0F, 0.0F);
 				XFORM().transform_dir(vec);
+				//Msg("%s:%d m=%f f=%.2f", __FUNCTION__, __LINE__, m_pPhysicsShell->getMass(), force);
 				E->applyForce(vec.normalize(), (velocity.y < 0) ? force : -force);
 			}
 			break;
@@ -1239,7 +1210,7 @@ void CHelicopter::PhDataUpdate(float step)
 		case eControlEle_UP:
 		case eControlEle_DW:
 		{
-			float force = m_control_ele_scale * m_pPhysicsShell->getMass();
+			float force = m_control_ele_max * m_pPhysicsShell->getMass();
 			Fvector vec = Fvector().set(0.0F, 1.0F, 0.0F);
 			XFORM().transform_dir(vec);
 			E->applyForce(vec.normalize(), (m_control_ele == eControlEle_UP) ? force : -force);
@@ -1247,29 +1218,58 @@ void CHelicopter::PhDataUpdate(float step)
 		}
 		}
 
-		Fvector angular;
-		E->get_AngularVel(angular);
+#if 1
+	if (true)
+	{
+		return;
+	}
+#endif
+
+		Fvector ang;
+		E->get_AngularVel(ang);
 
 		switch (m_control_yaw)
 		{
 		case eControlYaw_NA:
 		{
-			if (_abs(angular.y) > EPS_L)
+			if (_abs(ang.y) > deg2rad(1.0F))
 			{
-				float force = __min(_abs(angular.y), m_control_yaw_scale) * m_pPhysicsShell->getMass();
-				Fvector vec = Fvector().set(0.0F, 1.0F, 0.0F);
-				XFORM().transform_dir(vec);
-				E->applyTorque(vec.normalize(), (angular.y < 0) ? force : -force);
+				float force = deg2rad(1.0F);
+				Msg("%s:%d m=%f f=%.2f a=%.2f", __FUNCTION__, __LINE__, m_pPhysicsShell->getMass(), force, ang.y);
+				// E->applyRelTorque(0.0F, (ang.y < 0) ? force : -force, 0.0F);
 			}
 			break;
 		}
 		case eControlYaw_RS:
+		{
+			if (ang.y > m_control_yaw_max)
+			{
+				float force = __min(_abs(ang.y) - m_control_yaw_max, m_control_yaw_inc);
+				Msg("%s:%d m=%f f=%.2f a=%.2f", __FUNCTION__, __LINE__, m_pPhysicsShell->getMass(), force, ang.y);
+				E->applyRelTorque(0.0F, -force, 0.0F);
+			}
+			else
+			{
+				float force = __min(m_control_yaw_max - _abs(ang.y), m_control_yaw_inc);
+				Msg("%s:%d m=%f f=%.2f a=%.2f", __FUNCTION__, __LINE__, m_pPhysicsShell->getMass(), force, ang.y);
+				E->applyRelTorque(0.0F, force, 0.0F);
+			}
+			break;
+		}
 		case eControlYaw_LS:
 		{
-			float force = m_control_yaw_scale * m_pPhysicsShell->getMass();
-			Fvector vec = Fvector().set(0.0F, 1.0F, 0.0F);
-			XFORM().transform_dir(vec);
-			E->applyTorque(vec.normalize(), (m_control_yaw == eControlYaw_RS) ? force : -force);
+			if (ang.y < -m_control_yaw_max)
+			{
+				float force = __min(_abs(ang.y) - m_control_yaw_max, m_control_yaw_inc);
+				Msg("%s:%d m=%f f=%.2f a=%.2f", __FUNCTION__, __LINE__, m_pPhysicsShell->getMass(), force, ang.y);
+				E->applyRelTorque(0.0F, force, 0.0F);
+			}
+			else
+			{
+				float force = __min(m_control_yaw_max - _abs(ang.y), m_control_yaw_inc);
+				Msg("%s:%d m=%f f=%.2f a=%.2f", __FUNCTION__, __LINE__, m_pPhysicsShell->getMass(), force, ang.y);
+				E->applyRelTorque(0.0F, -force, 0.0F);
+			}
 			break;
 		}
 		}
@@ -1278,11 +1278,12 @@ void CHelicopter::PhDataUpdate(float step)
 		{
 		case eControlPit_NA:
 		{
-			if (_abs(velocity.z) > EPS_L)
+			if (_abs(velocity.z) > 0.01)
 			{
-				float force = __min(_abs(velocity.z), m_control_pit_scale) * m_pPhysicsShell->getMass();
+				float force = __min(_abs(velocity.z), m_control_pit_max) * m_pPhysicsShell->getMass();
 				Fvector vec = Fvector().set(0.0F, 0.0F, 1.0F);
 				XFORM().transform_dir(vec);
+				//Msg("%s:%d m=%f f=%.2f", __FUNCTION__, __LINE__, m_pPhysicsShell->getMass(), force);
 				E->applyForce(vec.normalize(), (velocity.z < 0) ? force : -force);
 			}
 			break;
@@ -1290,7 +1291,7 @@ void CHelicopter::PhDataUpdate(float step)
 		case eControlPit_FS:
 		case eControlPit_BS:
 		{
-			float force = m_control_pit_scale * m_pPhysicsShell->getMass();
+			float force = m_control_pit_max * m_pPhysicsShell->getMass();
 			Fvector vec = Fvector().set(0.0F, 0.0F, 1.0F);
 			XFORM().transform_dir(vec);
 			E->applyForce(vec.normalize(), (m_control_pit == eControlPit_FS) ? force : -force);
@@ -1302,11 +1303,12 @@ void CHelicopter::PhDataUpdate(float step)
 		{
 		case eControlRol_NA:
 		{
-			if (_abs(velocity.x) > EPS_L)
+			if (_abs(velocity.x) > 0.01)
 			{
-				float force = __min(_abs(velocity.x), m_control_rol_scale) * m_pPhysicsShell->getMass();
+				float force = __min(_abs(velocity.x), m_control_rol_max) * m_pPhysicsShell->getMass();
 				Fvector vec = Fvector().set(1.0F, 0.0F, 0.0F);
 				XFORM().transform_dir(vec);
+				//Msg("%s:%d m=%f f=%.2f", __FUNCTION__, __LINE__, m_pPhysicsShell->getMass(), force);
 				E->applyForce(vec.normalize(), (velocity.x < 0) ? force : -force);
 			}
 			break;
@@ -1314,7 +1316,7 @@ void CHelicopter::PhDataUpdate(float step)
 		case eControlRol_RS:
 		case eControlRol_LS:
 		{
-			float force = m_control_rol_scale * m_pPhysicsShell->getMass();
+			float force = m_control_rol_max * m_pPhysicsShell->getMass();
 			Fvector vec = Fvector().set(1.0F, 0.0F, 0.0F);
 			XFORM().transform_dir(vec);
 			E->applyForce(vec.normalize(), (m_control_rol == eControlRol_RS) ? force : -force);
@@ -1348,10 +1350,10 @@ void CHelicopter::RotorUpdate()
 
 void CHelicopter::DroneResetControl()
 {
-	SetControlEle(eControlEle_NA);
-	SetControlYaw(eControlYaw_NA);
-	SetControlPit(eControlPit_NA);
-	SetControlRol(eControlRol_NA);
+	m_control_ele = eControlEle_NA;
+	m_control_yaw = eControlYaw_NA;
+	m_control_pit = eControlPit_NA;
+	m_control_rol = eControlPit_NA;
 }
 
 void CHelicopter::OnBeforeExplosion()
