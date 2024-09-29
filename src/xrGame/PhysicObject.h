@@ -8,6 +8,7 @@
 #include "animation_script_callback.h"
 #include "xrserver_objects_alife.h"
 
+// GhenTuong: physics object callback
 #ifndef CPHYSICOBJECT_CHANGE
 #define CPHYSICOBJECT_CHANGE
 #endif

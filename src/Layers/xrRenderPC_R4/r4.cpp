@@ -397,7 +397,7 @@ void CRender::create()
 
 	//	MSAA option dependencies
 
-	o.dx10_msaa = !!ps_r3_msaa;
+	o.dx10_msaa = ps_r3_msaa && !ps_r4_hdr10_on;
 	o.dx10_msaa_samples = (1 << ps_r3_msaa);
 
 	o.dx10_msaa_opt = ps_r2_ls_flags.test(R3FLAG_MSAA_OPT);
@@ -470,6 +470,7 @@ void CRender::create()
 
 	// Check if SSS shaders exist
 	string_path fn;
+	o.ssfx_core = FS.exist(fn, "$game_shaders$", "r3\\screenspace_common", ".h") ? 1 : 0;
 	o.ssfx_rain = FS.exist(fn, "$game_shaders$", "r3\\effects_rain_splash", ".ps") ? 1 : 0;
 	o.ssfx_blood = FS.exist(fn, "$game_shaders$", "r3\\effects_wallmark_blood", ".ps") ? 1 : 0;
 	o.ssfx_branches = FS.exist(fn, "$game_shaders$", "r3\\deffer_tree_branch_bump-hq", ".vs") ? 1 : 0;
@@ -477,7 +478,12 @@ void CRender::create()
 	o.ssfx_ssr = FS.exist(fn, "$game_shaders$", "r3\\ssfx_ssr", ".ps") ? 1 : 0;
 	o.ssfx_terrain = FS.exist(fn, "$game_shaders$", "r3\\deffer_terrain_high_flat_d", ".ps") ? 1 : 0;
 	o.ssfx_volumetric = FS.exist(fn, "$game_shaders$", "r3\\ssfx_volumetric_blur", ".ps") ? 1 : 0;
+	o.ssfx_water = FS.exist(fn, "$game_shaders$", "r3\\ssfx_water", ".ps") ? 1 : 0;
+	o.ssfx_ao = FS.exist(fn, "$game_shaders$", "r3\\ssfx_ao", ".ps") ? 1 : 0;
+	o.ssfx_il = FS.exist(fn, "$game_shaders$", "r3\\ssfx_il", ".ps") ? 1 : 0;
 
+	Msg("- Supports SSS UPDATE 21");
+	Msg("- SSS CORE INSTALLED %i", o.ssfx_core);
 	Msg("- SSS HUD RAINDROPS SHADER INSTALLED %i", o.ssfx_hud_raindrops);
 	Msg("- SSS RAIN SHADER INSTALLED %i", o.ssfx_rain);
 	Msg("- SSS BLOOD SHADER INSTALLED %i", o.ssfx_blood);
@@ -485,6 +491,9 @@ void CRender::create()
 	Msg("- SSS SSR SHADER INSTALLED %i", o.ssfx_ssr);
 	Msg("- SSS TERRAIN SHADER INSTALLED %i", o.ssfx_terrain);
 	Msg("- SSS VOLUMETRIC SHADER INSTALLED %i", o.ssfx_volumetric);
+	Msg("- SSS WATER SHADER INSTALLED %i", o.ssfx_water);
+	Msg("- SSS AO SHADER INSTALLED %i", o.ssfx_ao);
+	Msg("- SSS IL SHADER INSTALLED %i", o.ssfx_il);
 
 	// constants
 	CResourceManager* RM = dxRenderDeviceRender::Instance().Resources;
@@ -969,10 +978,6 @@ void CRender::addShaderOption(const char* name, const char* value)
 	m_ShaderOptions.push_back(macro);
 }
 
-// XXX nitrocaster: workaround to eliminate conflict between different GUIDs from DXSDK/Windows SDK
-// 0a233719-3960-4578-9d7c-203b8b1d9cc1
-static const GUID guidShaderReflection =
-	{0x0a233719, 0x3960, 0x4578, {0x9d, 0x7c, 0x20, 0x3b, 0x8b, 0x1d, 0x9c, 0xc1}};
 
 template <typename T>
 static HRESULT create_shader(
@@ -988,7 +993,7 @@ static HRESULT create_shader(
 
 	ID3DShaderReflection* pReflection = 0;
 
-	HRESULT const _hr = D3DReflect(buffer, buffer_size, guidShaderReflection, (void**)&pReflection);
+	HRESULT const _hr = D3DReflect(buffer, buffer_size, IID_PPV_ARGS(&pReflection));
 	if (SUCCEEDED(_hr) && pReflection)
 	{
 		// Parse constant table data
@@ -1032,7 +1037,7 @@ static HRESULT create_shader(
 		ID3DShaderReflection* pReflection = 0;
 
 #ifdef USE_DX11
-		_result = D3DReflect(buffer, buffer_size, guidShaderReflection, (void**)&pReflection);
+        _result = D3DReflect(buffer, buffer_size, IID_PPV_ARGS(&pReflection));
 #else
 		_result			= D3D10ReflectShader( buffer, buffer_size, &pReflection);
 #endif
@@ -1070,7 +1075,7 @@ static HRESULT create_shader(
 
 		ID3DShaderReflection* pReflection = 0;
 #ifdef USE_DX11
-		_result = D3DReflect(buffer, buffer_size, guidShaderReflection, (void**)&pReflection);
+        _result = D3DReflect(buffer, buffer_size, IID_PPV_ARGS(&pReflection));
 #else
 		_result			= D3D10ReflectShader( buffer, buffer_size, &pReflection);
 #endif
@@ -1120,7 +1125,7 @@ static HRESULT create_shader(
 		ID3DShaderReflection* pReflection = 0;
 
 #ifdef USE_DX11
-		_result = D3DReflect(buffer, buffer_size, guidShaderReflection, (void**)&pReflection);
+        _result = D3DReflect(buffer, buffer_size, IID_PPV_ARGS(&pReflection));
 #else
 		_result			= D3D10ReflectShader( buffer, buffer_size, &pReflection);
 #endif
@@ -1269,6 +1274,10 @@ HRESULT CRender::shader_compile(
 	char c_smaa_quality [32];
 	
 	// SSS preprocessor stuff
+	char c_ssfx_il[32];
+	char c_ssfx_ao[32];
+	char c_ssfx_water[32];
+	char c_ssfx_water_parallax[32];
 	char c_ssr_quality[32];
 	char c_rain_quality[32];
 	char c_inter_grass[32];
@@ -1766,6 +1775,34 @@ HRESULT CRender::shader_compile(
 	def_it++;
 	xr_strcat(sh_name, c_ssr_quality);
 	len += xr_strlen(c_ssr_quality);
+
+	xr_sprintf(c_ssfx_water, "%d", u8(min(max(ps_ssfx_water_quality.x, 0.0f), 4.0f)));
+	defines[def_it].Name = "SSFX_WATER_QUALITY";
+	defines[def_it].Definition = c_ssfx_water;
+	def_it++;
+	xr_strcat(sh_name, c_ssfx_water);
+	len += xr_strlen(c_ssfx_water);
+
+	xr_sprintf(c_ssfx_water_parallax, "%d", u8(min(max(ps_ssfx_water_quality.y, 0.0f), 3.0f)));
+	defines[def_it].Name = "SSFX_WATER_PARALLAX";
+	defines[def_it].Definition = c_ssfx_water_parallax;
+	def_it++;
+	xr_strcat(sh_name, c_ssfx_water_parallax);
+	len += xr_strlen(c_ssfx_water_parallax);
+
+	xr_sprintf(c_ssfx_il, "%d", u8(min(max(ps_ssfx_il_quality, 0), 64)));
+	defines[def_it].Name = "SSFX_IL_QUALITY";
+	defines[def_it].Definition = c_ssfx_il;
+	def_it++;
+	xr_strcat(sh_name, c_ssfx_il);
+	len += xr_strlen(c_ssfx_il);
+
+	xr_sprintf(c_ssfx_ao, "%d", u8(min(max(ps_ssfx_ao_quality, 2), 8)));
+	defines[def_it].Name = "SSFX_AO_QUALITY";
+	defines[def_it].Definition = c_ssfx_ao;
+	def_it++;
+	xr_strcat(sh_name, c_ssfx_ao);
+	len += xr_strlen(c_ssfx_ao);
 
 	defines[def_it].Name = "SSFX_MODEXE";
 	defines[def_it].Definition = "1";

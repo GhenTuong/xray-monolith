@@ -331,6 +331,19 @@ void CRender::Render()
 	set_Recorder(NULL);
 	r_pmask(true, false); // disable priority "1"
 	Device.Statistic->RenderCALC.End();
+	
+	if (RImplementation.o.ssfx_core)
+	{
+		// HUD Masking rendering
+		FLOAT ColorRGBA[4] = { 1.0f, 0.0f, 0.0f, 1.0f };
+		HW.pContext->ClearRenderTargetView(Target->rt_ssfx_hud->pRT, ColorRGBA);
+
+		Target->u_setrt(Target->rt_ssfx_hud, NULL, NULL, HW.pBaseZB);
+		r_dsgraph_render_hud(true);
+
+		// Reset Depth
+		HW.pContext->ClearDepthStencilView(HW.pBaseZB, D3D_CLEAR_DEPTH, 1.0f, 0);
+	}
 
 	if (ps_r2_ls_flags.test(R2FLAG_TERRAIN_PREPASS))
 	{
@@ -361,6 +374,14 @@ void CRender::Render()
 		Target->phase_scene_begin();
 		r_dsgraph_render_graph(0);
 		Target->disable_aniso();
+	}
+
+	//  Redotix99: for 3D Shader Based Scopes 	
+	if (scope_3D_fake_enabled)
+	{
+		ID3D11Resource* zbuffer_res;
+		HW.pBaseZB->GetResource(&zbuffer_res);
+		HW.pContext->CopyResource(RImplementation.Target->rt_tempzb->pSurface, zbuffer_res);
 	}
 
 	//******* Occlusion testing of volume-limited light-sources
@@ -417,6 +438,7 @@ void CRender::Render()
 	{
 		PIX_EVENT(DEFER_PART1_SPLIT);
 		// skybox can be drawn here
+		
 		if (0)
 		{
 			if (!RImplementation.o.dx10_msaa)
@@ -574,6 +596,17 @@ void CRender::render_forward()
 	}
 
 	RImplementation.o.distortion = FALSE; // disable distorion
+}
+
+// Redotix99: for 3D Shader Based Scopes
+void CRender::render_Reticle()
+{
+	VERIFY(0 == mapDistort.size());
+	RImplementation.o.distortion = RImplementation.o.distortion_enabled;
+
+	r_dsgraph_render_ScopeSorted();
+
+	RImplementation.o.distortion = FALSE;
 }
 
 void CRender::RenderToTarget(RRT target)

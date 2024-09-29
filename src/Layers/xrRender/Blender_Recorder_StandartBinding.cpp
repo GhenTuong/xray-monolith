@@ -385,6 +385,44 @@ static class markswitch_color : public R_constant_setup
 	}
 }    markswitch_color;
 
+// Shader 3D Scopes
+extern Fvector4 ps_s3ds_param_1;
+extern Fvector4 ps_s3ds_param_2;
+extern Fvector4 ps_s3ds_param_3;
+extern Fvector4 ps_s3ds_param_4;
+
+static class s3ds_param_1 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_s3ds_param_1.x, ps_s3ds_param_1.y, ps_s3ds_param_1.z, ps_s3ds_param_1.w);
+	}
+}    s3ds_param_1;
+
+static class s3ds_param_2 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_s3ds_param_2.x, ps_s3ds_param_2.y, ps_s3ds_param_2.z, ps_s3ds_param_2.w);
+	}
+}    s3ds_param_2;
+
+static class s3ds_param_3 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_s3ds_param_3.x, ps_s3ds_param_3.y, ps_s3ds_param_3.z, ps_s3ds_param_3.w);
+	}
+}    s3ds_param_3;
+
+static class s3ds_param_4 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_s3ds_param_4.x, ps_s3ds_param_4.y, ps_s3ds_param_4.z, ps_s3ds_param_4.w);
+	}
+}    s3ds_param_4;
+
 //--DSR-- SilencerOverheat_start
 static class cl_silencer_glowing : public R_constant_setup
 {
@@ -699,6 +737,15 @@ static class cl_near_far_plane : public R_constant_setup
 } binder_near_far_plane;
 
 // Screen Space Shaders Stuff
+extern float ps_ssfx_hud_hemi;
+extern Fvector4 ps_ssfx_il;
+extern Fvector4 ps_ssfx_il_setup1;
+extern Fvector4 ps_ssfx_ao;
+extern Fvector4 ps_ssfx_ao_setup1;
+extern Fvector4 ps_ssfx_water;
+extern Fvector4 ps_ssfx_water_setup1;
+extern Fvector4 ps_ssfx_water_setup2;
+
 extern Fvector4 ps_ssfx_volumetric;
 extern Fvector4 ps_ssfx_ssr_2;
 extern Fvector4 ps_ssfx_terrain_offset;
@@ -915,8 +962,7 @@ static class ssfx_wind_anim : public R_constant_setup
 {
 	virtual void setup(R_constant* C)
 	{
-		Fvector3 WindAni = g_pGamePersistent->Environment().wind_anim;
-		RCache.set_c(C, WindAni.x, WindAni.y, WindAni.z, 0);
+		RCache.set_c(C, g_pGamePersistent->Environment().wind_anim);
 	}
 }    ssfx_wind_anim;
 
@@ -959,6 +1005,128 @@ static class ssfx_volumetric : public R_constant_setup
 		RCache.set_c(C, ps_ssfx_volumetric);
 	}
 }    ssfx_volumetric;
+
+static class ssfx_water : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_water);
+	}
+}    ssfx_water;
+
+static class ssfx_water_setup1 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_water_setup1);
+	}
+}    ssfx_water_setup1;
+
+static class ssfx_water_setup2 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_water_setup2);
+	}
+}    ssfx_water_setup2;
+
+static class ssfx_ao : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_ao);
+	}
+}    ssfx_ao;
+
+static class ssfx_ao_setup1 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_ao_setup1);
+	}
+}    ssfx_ao_setup1;
+
+static class ssfx_il : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_il);
+	}
+}    ssfx_il;
+
+static class ssfx_il_setup1 : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_il_setup1);
+	}
+}    ssfx_il_setup1;
+
+static class ssfx_hud_hemi : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, ps_ssfx_hud_hemi, 0, 0, 0);
+	}
+}    ssfx_hud_hemi;
+
+static class ssfx_issvp : public R_constant_setup
+{
+	virtual void setup(R_constant* C)
+	{
+		RCache.set_c(C, Device.m_SecondViewport.IsSVPFrame(), 0, 0, 0);
+	}
+}    ssfx_issvp;
+
+/* --- HDR10 parameters --- */
+extern float ps_r4_hdr10_whitepoint_nits;
+extern float ps_r4_hdr10_ui_nits;
+extern float ps_r4_hdr10_pda_intensity;
+extern int   ps_r4_hdr10_pda;
+extern int   ps_r4_hdr10_on;
+
+extern int   ps_r4_hdr10_colorspace;
+extern int   ps_r4_hdr10_tonemapper;
+extern int   ps_r4_hdr10_tonemap_mode;
+extern float ps_r4_hdr10_exposure;
+extern float ps_r4_hdr10_contrast;
+extern float ps_r4_hdr10_contrast_middle_gray;
+extern float ps_r4_hdr10_saturation;
+
+#define DECL_BINDER4F(name, x, y, z, w) \
+	static class cl_##name : public R_constant_setup \
+	{ \
+		virtual void setup(R_constant* C) \
+		{ \
+			RCache.set_c( \
+				C, \
+				(float)(x), (float)(y), (float)(z), (float)(w) \
+			); \
+		} \
+	} name
+
+DECL_BINDER4F( binder_hdr10_parameters1,
+	ps_r4_hdr10_whitepoint_nits,
+	ps_r4_hdr10_ui_nits / ps_r4_hdr10_whitepoint_nits,
+	ps_r4_hdr10_on,
+	ps_r4_hdr10_pda
+);
+
+DECL_BINDER4F( binder_hdr10_parameters2,
+	ps_r4_hdr10_colorspace,
+	ps_r4_hdr10_pda_intensity,
+	ps_r4_hdr10_tonemapper,
+	ps_r4_hdr10_tonemap_mode
+);
+
+DECL_BINDER4F( binder_hdr10_parameters3,
+	ps_r4_hdr10_exposure,
+	ps_r4_hdr10_contrast,
+	ps_r4_hdr10_saturation,
+	ps_r4_hdr10_contrast_middle_gray
+);
+
+/* --- HDR10 Parameters --- */
 
 // Standart constant-binding
 void CBlender_Compile::SetMapping()
@@ -1048,6 +1216,16 @@ void CBlender_Compile::SetMapping()
 	r_Constant("pda_params", &binder_pda_params);
 
 	// Screen Space Shaders
+	r_Constant("ssfx_issvp", &ssfx_issvp);
+	r_Constant("ssfx_hud_hemi", &ssfx_hud_hemi);
+	r_Constant("ssfx_il_setup", &ssfx_il);
+	r_Constant("ssfx_il_setup2", &ssfx_il_setup1);
+	r_Constant("ssfx_ao_setup", &ssfx_ao);
+	r_Constant("ssfx_ao_setup2", &ssfx_ao_setup1);
+	r_Constant("ssfx_water", &ssfx_water);
+	r_Constant("ssfx_water_setup1", &ssfx_water_setup1);
+	r_Constant("ssfx_water_setup2", &ssfx_water_setup2);
+
 	r_Constant("ssfx_volumetric", &ssfx_volumetric);
 	r_Constant("ssfx_ssr_2", &ssfx_ssr_2);
 	r_Constant("ssfx_terrain_offset", &ssfx_terrain_offset);
@@ -1085,6 +1263,12 @@ void CBlender_Compile::SetMapping()
 	r_Constant("markswitch_count", &markswitch_count);
 	r_Constant("markswitch_color", &markswitch_color);
 
+	// Shader 3D Scopes
+	r_Constant("s3ds_param_1", &s3ds_param_1);
+	r_Constant("s3ds_param_2", &s3ds_param_2);
+	r_Constant("s3ds_param_3", &s3ds_param_3);
+	r_Constant("s3ds_param_4", &s3ds_param_4);
+
 	// crookr
 	r_Constant("fakescope_params1", &binder_fakescope_params);
 	r_Constant("fakescope_params2", &binder_fakescope_ca);
@@ -1106,4 +1290,9 @@ void CBlender_Compile::SetMapping()
 	r_Constant("heatvision_params3", &binder_heatvision_args1);
 	r_Constant("heatvision_params4", &binder_heatvision_args2);
 	//--DSR-- HeatVision_end
+
+	// HDR10 parameters
+    r_Constant("hdr10_parameters1", &binder_hdr10_parameters1);
+    r_Constant("hdr10_parameters2", &binder_hdr10_parameters2);
+    r_Constant("hdr10_parameters3", &binder_hdr10_parameters3);
 }

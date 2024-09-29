@@ -110,9 +110,9 @@ xr_token screenshot_mode_token [ ] = {
 	{ 0, 0 }
 };
 
-//	ìOffî
-//	ìDX10.0 style [Standard]î
-//	ìDX10.1 style [Higher quality]î
+//	‚ÄúOff‚Äù
+//	‚ÄúDX10.0 style [Standard]‚Äù
+//	‚ÄúDX10.1 style [Higher quality]‚Äù
 
 // Common
 extern int psSkeletonUpdate;
@@ -274,6 +274,7 @@ int ps_r2_heatvision = 0;			// heatvision shader ON/OFF
 float heat_vision_mode = 0.0f;		// heatvision mode - rgb/greyscale
 int heat_vision_cooldown = 1;		// heatvision corpse cooling down ON/OFF
 float heat_vision_cooldown_time = 20000.f;	// heatvision corpse cooling down time (in ms)
+int heat_vision_zombie_cold = 0;    // heatvision zombies are not shown as hot objects ON/OFF
 Fvector4 heat_vision_steps = { 0.45f, 0.65f, 0.76f, .0f };
 Fvector4 heat_vision_blurring = { 15.f, 4.f, 60.f, .0f };
 Fvector4 heat_vision_args_1 = { .0f, .0f, .0f, .0f };
@@ -281,6 +282,7 @@ Fvector4 heat_vision_args_2 = { .0f, .0f, .0f, .0f };
 //--DSR-- HeatVision_end
 //crookr
 int scope_fake_enabled = 1;
+int scope_3D_fake_enabled = 1; // Redotix99: for 3D Shader Based Scopes
 //string32 scope_fake_texture = "wpn\\wpn_crosshair_pso1";
 
 float ps_r2_ss_sunshafts_length = 1.f;
@@ -296,6 +298,21 @@ float ps_r2_tnmp_w = 7.5f; // r2-only
 float ps_r2_tnmp_exposure = 7.0f; // r2-only
 float ps_r2_tnmp_gamma = .25f; // r2-only
 float ps_r2_tnmp_onoff = .0f; // r2-only
+
+// HDR10 parameters
+float ps_r4_hdr10_whitepoint_nits = 400.0f; // r4-only, default = 400 nits
+float ps_r4_hdr10_ui_nits         = 400.0f; // r4-only, default = 400 nits
+float ps_r4_hdr10_pda_intensity   = 1.0f;   // r4-only, default = 1.0x
+int   ps_r4_hdr10_pda             = 0;	    // r4-only (NOTE: this is a hack to not double HDR tonemap the 3D PDA)
+int   ps_r4_hdr10_on              = 0;	    // r4-only, default = off
+int   ps_r4_hdr10_colorspace      = 2;      // r4-only, default = Rec.2020
+
+int   ps_r4_hdr10_tonemapper   		   = 0;    // r4-only, default = ACES (Narkowicz)
+int   ps_r4_hdr10_tonemap_mode 		   = 1;	   // r4-only, default = Color
+float ps_r4_hdr10_exposure     		   = 2.0f; // r4-only, default = 1.0x
+float ps_r4_hdr10_contrast     		   = 0.0f; // r4-only, default = +0%
+float ps_r4_hdr10_contrast_middle_gray = 0.5f; // r4-only, default = 0.5
+float ps_r4_hdr10_saturation   		   = 0.0f; // r4-only, default = +0%
 
 float ps_r2_img_exposure = 1.0f; // r2-only
 float ps_r2_img_gamma = 1.0f; // r2-only
@@ -324,9 +341,30 @@ int ps_markswitch_current = 0;
 int ps_markswitch_count = 0;
 Fvector4 ps_markswitch_color = { 0, 0, 0, 0 };
 
+// Shader 3D Scopes
+Fvector4 ps_s3ds_param_1 = { 0, 0, 0, 0 };
+Fvector4 ps_s3ds_param_2 = { 0, 0, 0, 0 };
+Fvector4 ps_s3ds_param_3 = { 0, 0, 0, 0 };
+Fvector4 ps_s3ds_param_4 = { 0, 0, 0, 0 };
+
 // Screen Space Shaders Stuff
+float ps_ssfx_hud_hemi = 0.15f; // HUD Hemi Offset
+
+int ps_ssfx_il_quality = 32; // IL Samples
+Fvector4 ps_ssfx_il = { 6.66f, 1.0f, 1.0f, 5.0f }; // Res, Int, Vibrance, Blur
+Fvector4 ps_ssfx_il_setup1 = { 150.0f, 1.0f, 0.5f, 0.0f }; // Distance, HUD, Flora, -
+
+int ps_ssfx_ao_quality = 4; // AO Samples
+Fvector4 ps_ssfx_ao = { 1.0f, 5.0f, 1.0f, 2.5f }; // Res, AO int, Blur, Radius
+Fvector4 ps_ssfx_ao_setup1 = { 150.0, 1.0, 1.0, 0.0 }; // Distance, HUD, Flora, Max OCC
+
+Fvector4 ps_ssfx_water = { 1.0f, 0.8f, 1.0f, 0.0f }; // Res, Blur, Blur Perlin, -
+Fvector3 ps_ssfx_water_quality = { 1.0, 2.0, 0.0 }; // SSR Quality, Parallax Quality, -
+Fvector4 ps_ssfx_water_setup1 = { 0.6f, 3.0f, 0.3f, 0.05f }; // Distortion, Turbidity, Softborder, Parallax Height
+Fvector4 ps_ssfx_water_setup2 = { 0.8f, 6.0f, 0.3f, 0.5f }; // Reflection, Specular, Caustics, Ripples
+
 int ps_ssfx_ssr_quality = 0; // Quality
-Fvector4 ps_ssfx_ssr = { 1.0f, 0.3f, 0.6f, 0.0f }; // Res, Blur, Temp, Noise
+Fvector4 ps_ssfx_ssr = { 1.0f, 0.2f, 0.0f, 0.0f }; // Res, Blur, Temp, Noise
 Fvector4 ps_ssfx_ssr_2 = { 0.0f, 1.3f, 1.0f, 0.015f }; // Quality, Fade, Int, Wpn Int
 
 Fvector4 ps_ssfx_terrain_quality = { 6, 0, 0, 0 };
@@ -360,7 +398,7 @@ Fvector4 ps_ssfx_hud_drops_2 = { 1.5f, 0.85f, 0.0f, 2.0f }; // Density, Size, Ex
 
 Fvector4 ps_ssfx_blood_decals = { 0.6f, 0.6f, 0.f, 0.f };
 Fvector4 ps_ssfx_rain_1 = { 2.0f, 0.1f, 0.6f, 2.f }; // Len, Width, Speed, Quality
-Fvector4 ps_ssfx_rain_2 = { 0.7f, 0.1f, 1.0f, 0.5f }; // Alpha, Brigthness, Refraction, Reflection
+Fvector4 ps_ssfx_rain_2 = { 0.5f, 0.1f, 1.0f, 0.5f }; // Alpha, Brigthness, Refraction, Reflection
 Fvector4 ps_ssfx_rain_3 = { 0.5f, 1.0f, 0.0f, 0.0f }; // Alpha, Refraction ( Splashes )
 
 Fvector3 ps_ssfx_shadow_cascades = { 20, 40, 160 };
@@ -388,7 +426,7 @@ Flags32 ps_actor_shadow_flags = {0}; //Swartz: actor shadow
 Flags32 ps_common_flags = {0}; // r1-only
 u32 ps_steep_parallax = 0;
 int ps_r__detail_radius = 49;
-#ifdef DETAIL_RADIUS // ÛÔ‡‚ÎÂÌËÂ ‡‰ËÛÒÓÏ ÓÚËÒÓ‚ÍË Ú‡‚˚
+#ifdef DETAIL_RADIUS // —É–ø—Ä–∞–≤–ª–µ–Ω–∏–µ —Ä–∞–¥–∏—É—Å–æ–º –æ—Ç—Ä–∏—Å–æ–≤–∫–∏ —Ç—Ä–∞–≤—ã
 u32 dm_size = 24;
 u32 dm_cache1_line = 12; //dm_size*2/dm_cache1_count
 u32 dm_cache_line = 49; //dm_size+1+dm_size
@@ -1139,6 +1177,18 @@ void xrRender_initconsole()
 	CMD4(CCC_Float, "r2_tnmp_gamma", &ps_r2_tnmp_gamma, 0.0f, 20.0f);
 	CMD4(CCC_Float, "r2_tnmp_onoff", &ps_r2_tnmp_onoff, 0.0f, 1.0f);
 
+    CMD4(CCC_Float,   "r4_hdr10_whitepoint_nits", &ps_r4_hdr10_whitepoint_nits, 1.0f, 10000.0f);
+    CMD4(CCC_Float,   "r4_hdr10_ui_nits", 		  &ps_r4_hdr10_ui_nits, 	    1.0f, 10000.0f);
+    CMD4(CCC_Float,   "r4_hdr10_pda_intensity",   &ps_r4_hdr10_pda_intensity,      0, 1);
+	CMD4(CCC_Integer, "r4_hdr10_on", 			  &ps_r4_hdr10_on, 				   0, 1);
+    CMD4(CCC_Integer, "r4_hdr10_colorspace",	  &ps_r4_hdr10_colorspace, 		   0, 2);
+
+    CMD4(CCC_Integer, "r4_hdr10_tonemapper", 	  		&ps_r4_hdr10_tonemapper,      	    0, 8);
+	CMD4(CCC_Integer, "r4_hdr10_tonemap_mode",    		&ps_r4_hdr10_tonemap_mode,    	    0, 1);
+	CMD4(CCC_Float,   "r4_hdr10_exposure",        		&ps_r4_hdr10_exposure, 		  	    0, 20);
+	CMD4(CCC_Float,   "r4_hdr10_contrast",        		&ps_r4_hdr10_contrast, 		  	   -1, 1);
+	CMD4(CCC_Float,   "r4_hdr10_contrast_middle_gray",  &ps_r4_hdr10_contrast_middle_gray,  0, 10);
+	CMD4(CCC_Float,   "r4_hdr10_saturation", 	  		&ps_r4_hdr10_saturation,      	   -1, 1);
 
 	CMD4(CCC_Float, "r__exposure", &ps_r2_img_exposure, 0.5f, 4.0f);
 	CMD4(CCC_Float, "r__gamma", &ps_r2_img_gamma, 0.5f, 2.2f);
@@ -1156,6 +1206,7 @@ void xrRender_initconsole()
 	CMD4(CCC_Integer, "r__nightvision", &ps_r2_nightvision, 0, 3); //For beef's nightvision shader or other stuff
 
 	CMD4(CCC_Integer, "r__fakescope", &scope_fake_enabled, 0, 1); //crookr for fake scope
+	CMD4(CCC_Integer, "r__3Dfakescope", &scope_3D_fake_enabled, 0, 1); // Redotix99: for 3D Shader Based Scopes
 
 	CMD4(CCC_Integer, "r__heatvision", &ps_r2_heatvision, 0, 1); //--DSR-- HeatVision
 	CMD3(CCC_Mask, "r2_terrain_z_prepass", &ps_r2_ls_flags, R2FLAG_TERRAIN_PREPASS); //Terrain Z Prepass @Zagolski
@@ -1187,8 +1238,29 @@ void xrRender_initconsole()
 	CMD4(CCC_Integer, "markswitch_current", &ps_markswitch_current, 0, 32);
 	CMD4(CCC_Integer, "markswitch_count", &ps_markswitch_count, 0, 32);
 	CMD4(CCC_Vector4, "markswitch_color", &ps_markswitch_color, Fvector4().set(0.0, 0.0, 0.0, 0.0), Fvector4().set(1.0, 1.0, 1.0, 1.0));
+
+	// Shader 3D Scopes
+	CMD4(CCC_Vector4, "s3ds_param_1", &ps_s3ds_param_1, tw2_min, tw2_max);
+	CMD4(CCC_Vector4, "s3ds_param_2", &ps_s3ds_param_2, tw2_min, tw2_max);
+	CMD4(CCC_Vector4, "s3ds_param_3", &ps_s3ds_param_3, tw2_min, tw2_max);
+	CMD4(CCC_Vector4, "s3ds_param_4", &ps_s3ds_param_4, tw2_min, tw2_max);
 	
 	// Screen Space Shaders
+	CMD4(CCC_Float, "ssfx_hud_hemi", &ps_ssfx_hud_hemi, 0.0f, 1.0f);
+
+	CMD4(CCC_Integer, "ssfx_il_quality", &ps_ssfx_il_quality, 16, 64);
+	CMD4(CCC_Vector4, "ssfx_il", &ps_ssfx_il, Fvector4().set(0, 0, 0, 0), Fvector4().set(8, 10, 3, 6));
+	CMD4(CCC_Vector4, "ssfx_il_setup1", &ps_ssfx_il_setup1, Fvector4().set(0, 0, 0, 0), Fvector4().set(300, 1, 1, 1));
+
+	CMD4(CCC_Integer, "ssfx_ao_quality", &ps_ssfx_ao_quality, 2, 8);
+	CMD4(CCC_Vector4, "ssfx_ao", &ps_ssfx_ao, Fvector4().set(0, 0, 0, 0), Fvector4().set(8, 10, 1, 10));
+	CMD4(CCC_Vector4, "ssfx_ao_setup1", &ps_ssfx_ao_setup1, Fvector4().set(0, 0, 0, 0), Fvector4().set(300, 1, 1, 1));
+
+	CMD4(CCC_Vector4, "ssfx_water", &ps_ssfx_water, Fvector4().set(1, 0, 0, 0), Fvector4().set(8, 1, 1, 0));
+	CMD4(CCC_Vector3, "ssfx_water_quality", &ps_ssfx_water_quality, Fvector3().set(0, 0, 0), Fvector3().set(4, 3, 0));
+	CMD4(CCC_Vector4, "ssfx_water_setup1", &ps_ssfx_water_setup1, Fvector4().set(0, 0, 0, 0), Fvector4().set(2, 10, 1, 0.1));
+	CMD4(CCC_Vector4, "ssfx_water_setup2", &ps_ssfx_water_setup2, Fvector4().set(0, 0, 0, 0), Fvector4().set(1, 10, 1, 1));
+
 	CMD4(CCC_Integer, "ssfx_ssr_quality", &ps_ssfx_ssr_quality, 0, 5);
 	CMD4(CCC_Vector4, "ssfx_ssr", &ps_ssfx_ssr, Fvector4().set(1, 0, 0, 0), Fvector4().set(2, 1, 1, 1));
 	CMD4(CCC_Vector4, "ssfx_ssr_2", &ps_ssfx_ssr_2, Fvector4().set(0, 0, 0, 0), Fvector4().set(2, 2, 2, 2));
@@ -1252,6 +1324,7 @@ void xrRender_initconsole()
 	//--DSR-- HeatVision_start
 	CMD4(CCC_Integer, "heat_vision_cooldown",	&heat_vision_cooldown, 0, 1);
 	CMD4(CCC_Float, "heat_vision_cooldown_time", &heat_vision_cooldown_time, 0, 300000.f);
+	CMD4(CCC_Integer, "heat_vision_zombie_cold", &heat_vision_zombie_cold, 0, 1);
 	CMD2(CCC_Float,   "heat_vision_mode",		&heat_vision_mode);
 	CMD4(CCC_Vector4, "heat_vision_steps",		&heat_vision_steps, tw2_min, tw2_max);
 	CMD4(CCC_Vector4, "heat_vision_blurring",	&heat_vision_blurring, tw2_min, tw2_max);

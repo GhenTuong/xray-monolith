@@ -26,6 +26,7 @@
 #include "blender_lut.h"
 
 #include "../xrRender/dxRenderDeviceRender.h"
+#include "../xrRender/xrRender_console.h"
 
 #include <D3DX10Tex.h>
 
@@ -358,8 +359,8 @@ CRenderTarget::CRenderTarget()
 	b_ssao = xr_new<CBlender_SSAO_noMSAA>();
 	///////////////////////////////////lvutner
 	b_sunshafts = xr_new<CBlender_sunshafts>();
-	b_blur = xr_new<CBlender_blur>();	
-	b_pp_bloom = xr_new<CBlender_pp_bloom>();	
+	b_blur = xr_new<CBlender_blur>();
+	b_pp_bloom = xr_new<CBlender_pp_bloom>();
 	b_dof = xr_new<CBlender_dof>();
 	b_gasmask_drops = xr_new<CBlender_gasmask_drops>();
 	b_gasmask_dudv = xr_new<CBlender_gasmask_dudv>();
@@ -370,8 +371,9 @@ CRenderTarget::CRenderTarget()
 	b_smaa = xr_new<CBlender_smaa>();
 
 	// Screen Space Shaders Stuff
-	b_ssfx_ssr = xr_new<CBlender_ssfx_ssr>(); // [Ascii1457] SSS new Phase
-	b_ssfx_volumetric_blur = xr_new<CBlender_ssfx_volumetric_blur>(); // [Ascii1457] SSS new Phase
+	b_ssfx_ssr = xr_new<CBlender_ssfx_ssr>(); // SSR
+	b_ssfx_volumetric_blur = xr_new<CBlender_ssfx_volumetric_blur>(); // Volumetric Blur
+	b_ssfx_ao = xr_new<CBlender_ssfx_ao>(); // AO
 
 	// HDAO
 	b_hdao_cs = xr_new<CBlender_CS_HDAO>();
@@ -420,13 +422,21 @@ CRenderTarget::CRenderTarget()
 		rt_Position.create(r2_RT_P, w, h, D3DFMT_A16B16G16R16F, SampleCount);
 
 		if (RImplementation.o.dx10_msaa)
+		{
 			rt_MSAADepth.create(r2_RT_MSAAdepth, w, h, D3DFMT_D24S8, SampleCount);
+		}
+
+		rt_tempzb.create("$user$temp_zb", w, h, D3DFMT_D24S8); // Redotix99: for 3D Shader Based Scopes
 
 		// select albedo & accum
 		if (RImplementation.o.mrtmixdepth)
 		{
 			// NV50
-			rt_Color.create(r2_RT_albedo, w, h, D3DFMT_A8R8G8B8, SampleCount);
+			if (ps_r4_hdr10_on) {
+            	rt_Color.create(r2_RT_albedo, w, h, D3DFMT_A16B16G16R16F, SampleCount);
+			} else {
+				rt_Color.create(r2_RT_albedo, w, h, D3DFMT_A8R8G8B8, SampleCount);
+			}
 			rt_Accumulator.create(r2_RT_accum, w, h, D3DFMT_A16B16G16R16F, SampleCount);
 		}
 		else
@@ -450,10 +460,15 @@ CRenderTarget::CRenderTarget()
 
 		// generic(LDR) RTs
 		//LV - we should change their formats into D3DFMT_A16B16G16R16F for better HDR support.
-		rt_Generic_0.create(r2_RT_generic0, w, h, D3DFMT_A8R8G8B8, 1);
-		rt_Generic_1.create(r2_RT_generic1, w, h, D3DFMT_A8R8G8B8, 1);
-		rt_Generic.create(r2_RT_generic, w, h, D3DFMT_A8R8G8B8, 1);
-
+		if (ps_r4_hdr10_on) {
+			rt_Generic_0.create(r2_RT_generic0, w, h, D3DFMT_A16B16G16R16F, 1);
+			rt_Generic_1.create(r2_RT_generic1, w, h, D3DFMT_A16B16G16R16F, 1);
+			rt_Generic.create(r2_RT_generic, w, h, D3DFMT_A16B16G16R16F, 1);
+		} else {
+			rt_Generic_0.create(r2_RT_generic0, w, h, D3DFMT_A8R8G8B8, 1);
+			rt_Generic_1.create(r2_RT_generic1, w, h, D3DFMT_A8R8G8B8, 1);
+			rt_Generic.create(r2_RT_generic, w, h, D3DFMT_A8R8G8B8, 1);
+		}
 
 		rt_fakescope.create(r2_RT_scopert, w, h, D3DFMT_A8R8G8B8, 1); //crookr fakescope
 
@@ -461,42 +476,63 @@ CRenderTarget::CRenderTarget()
 		rt_Heat.create(r2_RT_heat, w, h, D3DFMT_A8R8G8B8, SampleCount);
 		//--DSR-- HeatVision_end
 
-        if (RImplementation.o.dx10_msaa)
-            rt_Generic_temp.create("$user$generic_temp", w, h, D3DFMT_A8R8G8B8, SampleCount);
-        else
-            rt_Generic_temp.create("$user$generic_temp", w, h, D3DFMT_A8R8G8B8, 1);
+        if (ps_r4_hdr10_on) {
+            rt_Generic_temp.create("$user$generic_temp", w, h, D3DFMT_A16B16G16R16F, RImplementation.o.dx10_msaa ? SampleCount : 1);
+		} else {
+            rt_Generic_temp.create("$user$generic_temp", w, h, D3DFMT_A8R8G8B8, RImplementation.o.dx10_msaa ? SampleCount : 1);
+		}
 
-		rt_secondVP.create(r2_RT_secondVP, w, h, D3DFMT_A8R8G8B8, 1); //--#SM+#-- +SecondVP+
-		rt_dof.create(r2_RT_dof, w, h, D3DFMT_A8R8G8B8);
-		rt_ui_pda.create(r2_RT_ui, w, h, D3DFMT_A8R8G8B8);
+		rt_dof.create(r2_RT_dof, w, h, ps_r4_hdr10_on ? D3DFMT_A16B16G16R16F : D3DFMT_A8R8G8B8);
+
+		if (ps_r4_hdr10_on) {
+			rt_secondVP.create(r2_RT_secondVP, w, h, D3DFMT_A2R10G10B10, 1); //--#SM+#-- +SecondVP+ // NOTE: this is a hack to use DXGI R10G10B10A2_UNORM
+			rt_ui_pda.create(r2_RT_ui, w, h, D3DFMT_A2R10G10B10); // NOTE: this is a hack to use DXGI R10G10B10A2_UNORM
+		} else {
+			rt_secondVP.create(r2_RT_secondVP, w, h, D3DFMT_A8R8G8B8, 1); //--#SM+#-- +SecondVP+
+			rt_ui_pda.create(r2_RT_ui, w, h, D3DFMT_A8R8G8B8);
+		}
+                                                         // PDA, probably not ideal though
 		// RT - KD
 		rt_sunshafts_0.create(r2_RT_sunshafts0, w, h, D3DFMT_A8R8G8B8);
 		rt_sunshafts_1.create(r2_RT_sunshafts1, w, h, D3DFMT_A8R8G8B8);
 
 		// RT Blur
 		rt_blur_h_2.create(r2_RT_blur_h_2, u32(w/2), u32(h/2), D3DFMT_A8R8G8B8);
-		rt_blur_2.create(r2_RT_blur_2, u32(w/2), u32(h/2), D3DFMT_A8R8G8B8);		
+		rt_blur_2.create(r2_RT_blur_2, u32(w/2), u32(h/2), D3DFMT_A8R8G8B8);
+		rt_blur_2_zb.create(r2_RT_blur_2_zb, u32(w/2), u32(h/2), D3DFMT_D24S8);
 
 		rt_blur_h_4.create(r2_RT_blur_h_4, u32(w/4), u32(h/4), D3DFMT_A8R8G8B8);
-		rt_blur_4.create(r2_RT_blur_4, u32(w/4), u32(h/4), D3DFMT_A8R8G8B8);		
-		
+		rt_blur_4.create(r2_RT_blur_4, u32(w/4), u32(h/4), D3DFMT_A8R8G8B8);
+		rt_blur_4_zb.create(r2_RT_blur_4_zb, u32(w/4), u32(h/4), D3DFMT_D24S8);
+
 		rt_blur_h_8.create(r2_RT_blur_h_8, u32(w/8), u32(h/8), D3DFMT_A8R8G8B8);
-		rt_blur_8.create(r2_RT_blur_8, u32(w/8), u32(h/8), D3DFMT_A8R8G8B8);	
-		
+		rt_blur_8.create(r2_RT_blur_8, u32(w/8), u32(h/8), D3DFMT_A8R8G8B8);
+		rt_blur_8_zb.create(r2_RT_blur_8_zb, u32(w/8), u32(h/8), D3DFMT_D24S8);
+
 		rt_pp_bloom.create(r2_RT_pp_bloom, w, h, D3DFMT_A8R8G8B8);
-		
+
 		// Screen Space Shaders Stuff
-		rt_ssfx.create(r2_RT_ssfx, w, h, D3DFMT_A8R8G8B8); // Generic RT
+		rt_ssfx.create(r2_RT_ssfx, w, h, D3DFMT_A8R8G8B8); // Temp RT
 		rt_ssfx_temp.create(r2_RT_ssfx_temp, w, h, D3DFMT_A8R8G8B8); // Temp RT
-		rt_ssfx_temp2.create(r2_RT_ssfx_temp2, w, h, D3DFMT_A8R8G8B8); // Temp RT 8B
-		rt_ssfx_accum.create(r2_RT_ssfx_accum, w, h, D3DFMT_A16B16G16R16F, SampleCount); // Temp RT 16B
-		
-		rt_ssfx_hud.create(r2_RT_ssfx_hud, w, h, D3DFMT_L8); // Temp RT 8B
-		
+		rt_ssfx_temp2.create(r2_RT_ssfx_temp2, w, h, D3DFMT_A8R8G8B8); // Temp RT
+		rt_ssfx_temp3.create(r2_RT_ssfx_temp3, w, h, D3DFMT_A8R8G8B8); // Temp RT
+
+		rt_ssfx_accum.create(r2_RT_ssfx_accum, w, h, D3DFMT_A16B16G16R16F, SampleCount); // Volumetric Acc
+		rt_ssfx_ssr.create(r2_RT_ssfx_ssr, w, h, D3DFMT_A8R8G8B8); // SSR Acc
+		rt_ssfx_water.create(r2_RT_ssfx_water, w, h, D3DFMT_A8R8G8B8); // Water Acc
+		rt_ssfx_ao.create(r2_RT_ssfx_ao, w, h, D3DFMT_A8R8G8B8); // AO Acc
+		rt_ssfx_il.create(r2_RT_ssfx_il, w, h, D3DFMT_A8R8G8B8); // IL Acc
+
+		rt_ssfx_water_waves.create(r2_RT_ssfx_water_waves, 512, 512, D3DFMT_A8R8G8B8); // Water Waves
+
+		rt_ssfx_prevPos.create(r2_RT_ssfx_prevPos, w, h, D3DFMT_A16B16G16R16F, SampleCount);
+
+		rt_ssfx_hud.create(r2_RT_ssfx_hud, w, h, D3DFMT_A16B16G16R16F); // HUD mask & Velocity buffer
+
 		if (RImplementation.o.dx10_msaa)
 		{
-			rt_Generic_0_r.create(r2_RT_generic0_r, w, h, D3DFMT_A8R8G8B8, SampleCount);
-			rt_Generic_1_r.create(r2_RT_generic1_r, w, h, D3DFMT_A8R8G8B8, SampleCount);
+            rt_Generic_0_r.create(r2_RT_generic0_r, w, h, ps_r4_hdr10_on ? D3DFMT_A16B16G16R16F : D3DFMT_A8R8G8B8, SampleCount);
+            rt_Generic_1_r.create(r2_RT_generic1_r, w, h, ps_r4_hdr10_on ? D3DFMT_A16B16G16R16F : D3DFMT_A8R8G8B8, SampleCount);
 			//rt_Generic.create		      (r2_RT_generic,w,h,   D3DFMT_A8R8G8B8, 1		);
 		}
 		//	Igor: for volumetric lights
@@ -508,7 +544,7 @@ CRenderTarget::CRenderTarget()
 
 	s_sunshafts.create(b_sunshafts, "r2\\sunshafts");
 	s_blur.create(b_blur, "r2\\blur");
-	s_pp_bloom.create(b_pp_bloom, "r2\\pp_bloom");		
+	s_pp_bloom.create(b_pp_bloom, "r2\\pp_bloom");
 	s_dof.create(b_dof, "r2\\dof");
 	s_gasmask_drops.create(b_gasmask_drops, "r2\\gasmask_drops");
 	s_gasmask_dudv.create(b_gasmask_dudv, "r2\\gasmask_dudv");
@@ -517,15 +553,25 @@ CRenderTarget::CRenderTarget()
 	s_fakescope.create(b_fakescope, "r2\\fakescope"); //crookr
 
 	s_heatvision.create(b_heatvision, "r2\\heatvision"); //--DSR-- HeatVision
-	s_lut.create(b_lut, "r2\\lut");	
+	s_lut.create(b_lut, "r2\\lut");
 	// OCCLUSION
 	s_occq.create(b_occq, "r2\\occq");
 
 	// Screen Space Shaders Stuff
 	s_ssfx_ssr.create(b_ssfx_ssr, "r2\\ssfx_ssr"); // SSR
 	s_ssfx_volumetric_blur.create(b_ssfx_volumetric_blur, "r2\\ssfx_volumetric_blur"); // Volumetric Blur
-	
-	s_ssfx_dumb.create("ssfx_dumb"); // Dumb shader
+
+	s_ssfx_water_ssr.create("ssfx_water_ssr"); // Water SSR
+	s_ssfx_water.create("ssfx_water"); // Water
+
+	s_ssfx_ao.create(b_ssfx_ao, "ssfx_ao"); // SSR
+
+	string32 cskin_buffer;
+	for (int skin_num = 0; skin_num < 5; skin_num++)
+	{
+		sprintf(cskin_buffer, "ssfx_hud_skin%i", skin_num);
+		s_ssfx_hud[skin_num].create(cskin_buffer);
+	}
 
 	// DIRECT (spot)
 	D3DFORMAT depth_format = (D3DFORMAT)RImplementation.o.HW_smap_FORMAT;
@@ -715,13 +761,13 @@ CRenderTarget::CRenderTarget()
 	{
 		u32 w = Device.dwWidth;
 		u32 h = Device.dwHeight;
-	
+
 		rt_smaa_edgetex.create(r2_RT_smaa_edgetex, w, h, D3DFMT_A8R8G8B8);
 		rt_smaa_blendtex.create(r2_RT_smaa_blendtex, w, h, D3DFMT_A8R8G8B8);
-		
+
 		s_smaa.create(b_smaa, "r3\\smaa");
 	}
-	
+
 	// TONEMAP
 	{
 		rt_LUM_64.create(r2_RT_luminance_t64, 64, 64, D3DFMT_A16B16G16R16F);
@@ -851,7 +897,7 @@ CRenderTarget::CRenderTarget()
 		}
 		// Build material(s)
 		{
-			//	Create immutable texture. 
+			//	Create immutable texture.
 			//	So we need to init data _before_ the creation.
 			// Surface
 			//R_CHK						(D3DXCreateVolumeTexture(HW.pDevice,TEX_material_LdotN,TEX_material_LdotH,4,1,0,D3DFMT_A8L8,D3DPOOL_MANAGED,&t_material_surf));
@@ -1120,7 +1166,7 @@ CRenderTarget::CRenderTarget()
 	s_menu.create("distort");
 	g_menu.create(FVF::F_TL, RCache.Vertex.Buffer(), RCache.QuadIB);
 
-	// 
+	//
 	dwWidth = Device.dwWidth;
 	dwHeight = Device.dwHeight;
 }
@@ -1177,7 +1223,7 @@ CRenderTarget::~CRenderTarget()
 #endif // DEBUG
 	_RELEASE(t_noise_surf_mipped);
 
-	// 
+	//
 	accum_spot_geom_destroy();
 	accum_omnip_geom_destroy();
 	accum_point_geom_destroy();
@@ -1192,21 +1238,23 @@ CRenderTarget::~CRenderTarget()
 	xr_delete(b_accum_point);
 	xr_delete(b_accum_direct);
 	xr_delete(b_ssao);
-	
+
 	////////////lvutner
-	xr_delete(b_blur);		
+	xr_delete(b_blur);
 	xr_delete(b_dof);
-	xr_delete(b_pp_bloom);	
+	xr_delete(b_pp_bloom);
 	xr_delete(b_gasmask_drops);
 	xr_delete(b_gasmask_dudv);
 	xr_delete(b_nightvision);
 	xr_delete(b_fakescope); //crookr
 	xr_delete(b_heatvision); //--DSR-- HeatVision
-	xr_delete(b_lut);	
+	xr_delete(b_lut);
 	xr_delete(b_smaa);
 
-	xr_delete(b_ssfx_ssr); // [Ascii1457] SSS new Phase
-	xr_delete(b_ssfx_volumetric_blur); // [Ascii1457] SSS new Phase
+	// [ SSS Stuff ]
+	xr_delete(b_ssfx_ssr); // SSR Phase
+	xr_delete(b_ssfx_volumetric_blur); // Volumetric Phase
+	xr_delete(b_ssfx_ao); // AO Phase
 
 	if (RImplementation.o.dx10_msaa)
 	{
@@ -1221,6 +1269,7 @@ CRenderTarget::~CRenderTarget()
 			xr_delete(b_accum_direct_msaa[i]);
 			xr_delete(b_accum_mask_msaa[i]);
 			xr_delete(b_accum_direct_volumetric_msaa[i]);
+			//xr_delete					(b_accum_direct_volumetric_sun_msaa[i]);
 			xr_delete(b_accum_spot_msaa[i]);
 			xr_delete(b_accum_volumetric_msaa[i]);
 			xr_delete(b_accum_point_msaa[i]);
@@ -1228,7 +1277,7 @@ CRenderTarget::~CRenderTarget()
 			xr_delete(b_ssao_msaa[i]);
 		}
 		xr_delete(b_postprocess_msaa);
-		xr_delete(b_bloom_msaa); 
+		xr_delete(b_bloom_msaa);
 	}
 	xr_delete(b_accum_mask);
 	xr_delete(b_occq);
@@ -1306,8 +1355,8 @@ bool CRenderTarget::use_minmax_sm_this_frame()
 	case CRender::MMSM_AUTODETECT:
 		{
 			u32 dwScreenArea =
-				HW.m_ChainDesc.BufferDesc.Width *
-				HW.m_ChainDesc.BufferDesc.Height;
+				HW.m_ChainDesc.Width *
+				HW.m_ChainDesc.Height;
 
 			if ((dwScreenArea >= RImplementation.o.dx10_minmax_sm_screenarea_threshold))
 				return need_to_render_sunshafts();

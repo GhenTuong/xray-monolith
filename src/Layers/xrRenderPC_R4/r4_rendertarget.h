@@ -27,7 +27,7 @@ public:
 	};
 
 	u32 dwLightMarkerID;
-	// 
+	//
 	IBlender* b_occq;
 	IBlender* b_accum_mask;
 	IBlender* b_accum_direct;
@@ -51,10 +51,10 @@ public:
 	IBlender* b_accum_reflected_msaa[8];
 	IBlender* b_ssao;
 	IBlender* b_ssao_msaa[8];
-	
-	IBlender* b_blur;	
+
+	IBlender* b_blur;
 	IBlender* b_dof;
-	IBlender* b_pp_bloom;	
+	IBlender* b_pp_bloom;
 	IBlender* b_gasmask_drops;
 	IBlender* b_gasmask_dudv;
 	IBlender* b_nightvision;
@@ -69,6 +69,7 @@ public:
 	// [SSS Stuff]
 	IBlender* b_ssfx_ssr;
 	IBlender* b_ssfx_volumetric_blur;
+	IBlender* b_ssfx_ao;
 
 #ifdef DEBUG
 	struct		dbg_line_t		{
@@ -93,16 +94,16 @@ public:
 	ref_rt rt_Heat;
 	//--DSR-- HeatVision_end
 
-	// 
+	//
 	ref_rt rt_Accumulator; // 64bit		(r,g,b,specular)
 	ref_rt rt_Accumulator_temp; // only for HW which doesn't feature fp16 blend
 	ref_rt rt_sunshafts_0; // ss0
 	ref_rt rt_sunshafts_1; // ss1
 	ref_rt rt_Generic_0; // 32bit		(r,g,b,a)				// post-process, intermidiate results, etc.
 	ref_rt rt_Generic_1; // 32bit		(r,g,b,a)				// post-process, intermidiate results, etc.
-	
+
 	resptr_core<CRT, resptrcode_crt> rt_Generic_temp;
-	
+
 	ref_rt rt_secondVP;	// 32bit		(r,g,b,a) --//#SM+#-- +SecondVP+
 
 
@@ -110,21 +111,24 @@ public:
 
 	ref_rt rt_dof;
 	ref_rt rt_ui_pda;
-	
+
 	ref_rt rt_blur_h_2;
 	ref_rt rt_blur_2;
+	ref_rt rt_blur_2_zb;
 
 	ref_rt rt_blur_h_4;
 	ref_rt rt_blur_4;
-	
+	ref_rt rt_blur_4_zb;
+
 	ref_rt rt_blur_h_8;
 	ref_rt rt_blur_8;
+	ref_rt rt_blur_8_zb;
 
 	ref_rt rt_pp_bloom;
 
 	ref_rt rt_smaa_edgetex;
 	ref_rt rt_smaa_blendtex;
-	
+
 	//	Igor: for volumetric lights
 	ref_rt rt_Generic_2; // 32bit		(r,g,b,a)				// post-process, intermidiate results, etc.
 	ref_rt rt_Bloom_1; // 32bit, dim/4	(r,g,b,?)
@@ -142,7 +146,7 @@ public:
 
 	// smap
 	ref_rt rt_smap_surf; // 32bit,		color
-	ref_rt rt_smap_depth; // 24(32) bit,	depth 
+	ref_rt rt_smap_depth; // 24(32) bit,	depth
 	ref_rt rt_smap_depth_minmax; //	is used for min/max sm
 	//	TODO: DX10: CHeck if we need old-style SMAP
 	//	IDirect3DSurface9*			rt_smap_ZB;		//
@@ -151,8 +155,29 @@ public:
 	ref_rt rt_ssfx;
 	ref_rt rt_ssfx_temp;
 	ref_rt rt_ssfx_temp2;
+	ref_rt rt_ssfx_temp3;
+
 	ref_rt rt_ssfx_accum;
 	ref_rt rt_ssfx_hud;
+	ref_rt rt_ssfx_ssr;
+	ref_rt rt_ssfx_water;
+	ref_rt rt_ssfx_water_waves;
+	ref_rt rt_ssfx_ao;
+	ref_rt rt_ssfx_il;
+
+	ref_rt rt_ssfx_prevPos;
+
+	ref_shader s_ssfx_water;
+	ref_shader s_ssfx_water_ssr;
+	ref_shader s_ssfx_ao;
+	ref_shader s_ssfx_hud[5];
+
+	Fmatrix Matrix_previous, Matrix_current;
+	Fmatrix Matrix_HUD_previous, Matrix_HUD_current;
+	Fvector3 Position_previous;
+	bool RVelocity;
+
+	ref_rt rt_tempzb; // Redotix99: for 3D Shader Based Scopes
 
 	ref_shader s_ssfx_dumb;
 
@@ -180,7 +205,7 @@ private:
 	ref_shader s_hdao_cs;
 	ref_shader s_hdao_cs_msaa;
 
-	
+
 
 	// Accum
 	ref_shader s_accum_mask;
@@ -191,9 +216,9 @@ private:
 	ref_shader s_accum_spot;
 	ref_shader s_accum_reflected;
 	ref_shader s_accum_volume;
-	ref_shader s_blur;	
+	ref_shader s_blur;
 	ref_shader s_dof;
-	ref_shader s_pp_bloom;	
+	ref_shader s_pp_bloom;
 	ref_shader s_gasmask_drops;
 	ref_shader s_gasmask_dudv;
 	ref_shader s_nightvision;
@@ -323,14 +348,15 @@ public:
 	void u_DBT_disable();
 	void phase_sunshafts();
 	void phase_blur();
-	void phase_pp_bloom();	
+	void phase_pp_bloom();
 	void phase_dof();
 	void phase_gasmask_drops();
 	void phase_gasmask_dudv();
 	void phase_nightvision();
 	void phase_fakescope(); //crookr
 	void phase_heatvision(); //--DSR-- HeatVision
-	void phase_lut();		
+	void phase_3DSSReticle(); // Redotix99: for 3D Shader Based Scopes
+	void phase_lut();
 	void phase_smaa();
 	void phase_scene_prepare();
 	void phase_scene_begin();
@@ -352,6 +378,10 @@ public:
 	// SSS Stuff
 	void phase_ssfx_ssr(); // SSR Phase
 	void phase_ssfx_volumetric_blur(); // Volumetric Blur
+	void phase_ssfx_water_blur(); // Water Blur
+	void phase_ssfx_water_waves(); // Water Waves
+	void phase_ssfx_ao(); // AO
+	void phase_ssfx_il(); // IL
 	void set_viewport_size(ID3DDeviceContext* dev, float w, float h);
 
 	//	Generates min/max sm

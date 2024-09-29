@@ -52,9 +52,10 @@ public:
 
 	adopt_dx10sampler(const adopt_dx10sampler& _C) : m_pC(_C.m_pC), m_SI(_C.m_SI) { if (u32(-1) == m_SI) m_pC = 0; }
 
+	// TODO: why are these commented out?
 	//	adopt_sampler&			_texture		(LPCSTR texture)		{ if (C) C->i_Texture	(stage,texture);											return *this;	}
 	//	adopt_sampler&			_projective		(bool _b)				{ if (C) C->i_Projective(stage,_b);													return *this;	}
-	//	adopt_sampler&			_clamp			()						{ if (C) C->i_Address	(stage,D3DTADDRESS_CLAMP);									return *this;	}
+		adopt_dx10sampler&	    _clamp			()						{ if (m_pC) m_pC->i_dx10Address	(m_SI,D3DTADDRESS_CLAMP);							return *this;	}
 	//	adopt_sampler&			_wrap			()						{ if (C) C->i_Address	(stage,D3DTADDRESS_WRAP);									return *this;	}
 	//	adopt_sampler&			_mirror			()						{ if (C) C->i_Address	(stage,D3DTADDRESS_MIRROR);									return *this;	}
 	//	adopt_sampler&			_f_anisotropic	()						{ if (C) C->i_Filter	(stage,D3DTEXF_ANISOTROPIC,D3DTEXF_LINEAR,D3DTEXF_ANISOTROPIC);	return *this;	}
@@ -115,6 +116,13 @@ public:
 	adopt_compiler& _o_emissive(bool E)
 	{
 		C->SH->flags.bEmissive = E;
+		return *this;
+	}
+
+	//  Redotix99: for 3D Shader Based Scopes
+	adopt_compiler& _o_scopelense(u32 lenseType)
+	{
+		C->SH->flags.iScopeLense = lenseType;
 		return *this;
 	}
 
@@ -362,9 +370,10 @@ void CResourceManager::LS_Load()
 
 
 		class_<adopt_dx10sampler>("_dx10sampler")
+		// TODO: why are these commented out?
 		//.def("texture",						&adopt_sampler::_texture		,return_reference_to(_1))
 		//.def("project",						&adopt_sampler::_projective		,return_reference_to(_1))
-		//.def("clamp",						&adopt_sampler::_clamp			,return_reference_to(_1))
+		.def("clamp",						&adopt_dx10sampler::_clamp			,return_reference_to(_1))
 		//.def("wrap",						&adopt_sampler::_wrap			,return_reference_to(_1))
 		//.def("mirror",						&adopt_sampler::_mirror			,return_reference_to(_1))
 		//.def("f_anisotropic",				&adopt_sampler::_f_anisotropic	,return_reference_to(_1))
@@ -396,6 +405,9 @@ void CResourceManager::LS_Load()
 		.def("zb", &adopt_compiler::_ZB, return_reference_to(_1))
 		.def("blend", &adopt_compiler::_blend, return_reference_to(_1))
 		.def("aref", &adopt_compiler::_aref, return_reference_to(_1))
+
+		.def("scopelense", &adopt_compiler::_o_scopelense, return_reference_to(_1)) //  Redotix99: for 3D Shader Based Scopes
+
 		//	For compatibility only
 		.def("dx10color_write_enable", &adopt_compiler::_dx10color_write_enable, return_reference_to(_1))
 		.def("color_write_enable", &adopt_compiler::_dx10color_write_enable, return_reference_to(_1))
@@ -407,7 +419,7 @@ void CResourceManager::LS_Load()
 		.def("dx10zfunc", &adopt_compiler::_dx10ZFunc, return_reference_to(_1))
 
 		.def("dx10sampler", &adopt_compiler::_dx10sampler) // returns sampler-object
-		.def("dx10Options", &adopt_compiler::_dx10Options), // returns options-object			
+		.def("dx10Options", &adopt_compiler::_dx10Options), // returns options-object	
 
 
 		class_<adopt_blend>("blend")

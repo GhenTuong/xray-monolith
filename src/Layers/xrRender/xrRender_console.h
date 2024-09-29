@@ -3,6 +3,13 @@
 #pragma once
 
 // Common
+extern ECORE_API int ps_ssfx_il_quality;
+extern ECORE_API int ps_ssfx_ao_quality;
+extern ECORE_API Fvector3 ps_ssfx_water_quality;
+extern ECORE_API Fvector4 ps_ssfx_il;
+extern ECORE_API Fvector4 ps_ssfx_ao;
+extern ECORE_API Fvector4 ps_ssfx_water;
+
 extern ECORE_API int ps_ssfx_ssr_quality;
 extern ECORE_API Fvector4 ps_ssfx_ssr;
 extern ECORE_API Fvector4 ps_ssfx_ssr_2;
@@ -160,9 +167,11 @@ extern ECORE_API Fvector4 ps_r2_mask_control; // r2-only
 extern ECORE_API Fvector ps_r2_drops_control; // r2-only
 extern ECORE_API int ps_r2_nightvision;
 extern ECORE_API int scope_fake_enabled; //crookr
+extern ECORE_API int scope_3D_fake_enabled; // Redotix99: for 3D Shader Based Scopes
 extern ECORE_API int ps_r2_heatvision;			//--DSR-- HeatVision
 extern ECORE_API int heat_vision_cooldown;		//--DSR-- HeatVision
 extern ECORE_API float heat_vision_cooldown_time;	//--DSR-- HeatVision
+extern ECORE_API int heat_vision_zombie_cold;	//--DSR-- HeatVision
 extern ECORE_API float ps_r2_ss_sunshafts_length;
 extern ECORE_API float ps_r2_ss_sunshafts_radius;
 extern u32 ps_sunshafts_mode;
@@ -188,6 +197,20 @@ extern ECORE_API float ps_r2_tnmp_w; // r2-only
 extern ECORE_API float ps_r2_tnmp_exposure; // r2-only
 extern ECORE_API float ps_r2_tnmp_gamma; // r2-only
 extern ECORE_API float ps_r2_tnmp_onoff; // r2-only
+
+// HDR10 parameters
+extern ECORE_API float ps_r4_hdr10_whitepoint_nits; // r4-only
+extern ECORE_API float ps_r4_hdr10_ui_nits; 		// r4-only
+extern ECORE_API int   ps_r4_hdr10_pda;  			// r4-only (NOTE: this is a hack to not double HDR tonemap the 3D PDA)
+extern ECORE_API int   ps_r4_hdr10_on; 			  	// r4-only
+extern ECORE_API float ps_r4_hdr10_pda_intensity; 	// r4-only
+
+extern ECORE_API int   ps_r4_hdr10_tonemapper;    		 // r4-only
+extern ECORE_API int   ps_r4_hdr10_tonemap_mode;  		 // r4-only
+extern ECORE_API float ps_r4_hdr10_exposure;      		 // r4-only
+extern ECORE_API float ps_r4_hdr10_contrast;      		 // r4-only
+extern ECORE_API float ps_r4_hdr10_contrast_middle_gray; // r4-only
+extern ECORE_API float ps_r4_hdr10_saturation;    		 // r4-only
 
 extern ECORE_API float ps_r2_img_exposure; // r2-only
 extern ECORE_API float ps_r2_img_gamma; // r2-only

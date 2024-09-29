@@ -922,6 +922,7 @@ CScriptGameObject* CScriptGameObject::GetActiveItem()
 CScriptGameObject* CScriptGameObject::GetObjectByName(LPCSTR caObjectName) const
 {
 	CInventoryOwner* l_tpInventoryOwner = smart_cast<CInventoryOwner*>(&object());
+	CInventoryBox* inventory_box = smart_cast<CInventoryBox*>(&this->object());
 	if (l_tpInventoryOwner)
 	{
 		CInventoryItem* l_tpInventoryItem = l_tpInventoryOwner->inventory().GetItemFromInventory(caObjectName);
@@ -930,6 +931,19 @@ CScriptGameObject* CScriptGameObject::GetObjectByName(LPCSTR caObjectName) const
 			return (0);
 		else
 			return (l_tpGameObject->lua_game_object());
+	}
+	else if (inventory_box)
+	{
+		xr_vector<u16>::const_iterator I = inventory_box->m_items.begin();
+		xr_vector<u16>::const_iterator E = inventory_box->m_items.end();
+		for (; I != E; ++I)
+		{
+			CGameObject* GO = smart_cast<CGameObject*>(Level().Objects.net_Find(*I));
+			if (GO && GO->cNameSect() == caObjectName) {
+				return (GO->lua_game_object());
+			}
+		}
+		return (0);
 	}
 	else
 	{
@@ -1567,18 +1581,6 @@ void CScriptGameObject::AttachVehicle(CScriptGameObject* veh, bool bForce)
 		else
 			ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "CGameObject : cannot be cast to CHolderCustom!");
 	}
-
-#ifdef CHOLDERCUSTOM_CHANGE
-	CAI_Stalker *stalker = smart_cast<CAI_Stalker *>(&object());
-	if (stalker)
-	{
-		CHolderCustom *vehicle = smart_cast<CHolderCustom *>(&veh->object());
-		if (vehicle)
-			stalker->use_HolderEx(vehicle);
-		else
-			ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError, "CGameObject : cannot be cast to CHolderCustom!");
-	}
-#endif
 }
 
 void CScriptGameObject::DetachVehicle(bool bForce)
@@ -1588,27 +1590,10 @@ void CScriptGameObject::DetachVehicle(bool bForce)
 	{
 		actor->use_HolderEx(NULL, bForce);
 	}
-
-#ifdef CHOLDERCUSTOM_CHANGE
-	CAI_Stalker *stalker = smart_cast<CAI_Stalker *>(&object());
-	if (stalker)
-	{
-		stalker->use_HolderEx(NULL);
-	}
-#endif
 }
 
 CScriptGameObject* CScriptGameObject::GetAttachedVehicle()
 {
-#ifdef CHOLDERCUSTOM_CHANGE
-	CAI_Stalker *stalker = smart_cast<CAI_Stalker *>(&object());
-	if (stalker && stalker->Holder())
-	{
-		CGameObject *GO = smart_cast<CGameObject *>(stalker->Holder());
-		return (GO) ? GO->lua_game_object() : NULL;
-	}
-#endif
-
 	CActor* actor = smart_cast<CActor*>(&object());
 	if (!actor)
 		return (0);
@@ -1691,6 +1676,49 @@ bool CScriptGameObject::WeaponInGrenadeMode()
 	return wpn->m_bGrenadeMode;
 }
 
+void CScriptGameObject::SetBoneVisible(LPCSTR bone_name, bool bVisibility, bool bRecursive, bool bHud)
+{
+	IKinematics* k = nullptr;
+
+	CHudItem* itm = smart_cast<CHudItem*>(&object());
+	if (bHud && itm && itm->HudItemData())
+		k = itm->HudItemData()->m_model;
+	else
+		k = object().Visual()->dcast_PKinematics();
+
+	if (!k)
+		return;
+
+	u16 bone_id = k->LL_BoneID(bone_name);
+	if (bone_id == BI_NONE)
+		return;
+
+	if (bVisibility != k->LL_GetBoneVisible(bone_id))
+		k->LL_SetBoneVisible(bone_id, bVisibility, bRecursive);
+
+	return;
+}
+
+bool CScriptGameObject::IsBoneVisible(LPCSTR bone_name, bool bHud)
+{
+	IKinematics* k = nullptr;
+
+	CHudItem* itm = smart_cast<CHudItem*>(&object());
+	if (bHud && itm && itm->HudItemData())
+		k = itm->HudItemData()->m_model;
+	else
+		k = object().Visual()->dcast_PKinematics();
+
+	if (!k)
+		return false;
+
+	u16 bone_id = k->LL_BoneID(bone_name);
+	if (bone_id == BI_NONE)
+		return false;
+
+	return k->LL_GetBoneVisible(bone_id) == TRUE ? true : false;
+}
+
 float CScriptGameObject::GetLuminocityHemi()
 {
 	CObject* e = smart_cast<CObject*>(&object());
@@ -1711,29 +1739,51 @@ float CScriptGameObject::GetLuminocity()
 	return e->renderable_ROS()->get_luminocity();
 }
 
-void CScriptGameObject::ForceSetPosition(Fvector pos, bool bActivate)
+void CScriptGameObject::ForceSetPosition(Fvector pos, bool enable)
 {
 	CPhysicsShellHolder* sh = object().cast_physics_shell_holder();
 	if (!sh)
 		return;
 
+	Fmatrix& M = object().XFORM();
+	M.c = pos;
+
 	CPhysicsShell* shell = sh->PPhysicsShell();
 	if (shell)
 	{
-		if (bActivate)
-			shell->Enable();
-
-		Fmatrix M = object().XFORM();
-		M.c = pos;
-		M.set(M);
-
 		shell->SetGlTransformDynamic(M);
-		if (sh->character_physics_support())
-			sh->character_physics_support()->ForceTransform(M);
+		sh->correct_spawn_pos();
+		if (enable)
+			shell->Enable();
 	}
-	else
-		ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
-		                                "force_set_position: object %s has no physics shell!", *object().cName());
+
+	if (sh->character_physics_support())
+		sh->character_physics_support()->ForceTransform(M);
+}
+
+
+void CScriptGameObject::ForceSetRotation(Fvector rot, bool enable)
+{
+	CPhysicsShellHolder* sh = object().cast_physics_shell_holder();
+	if (!sh)
+		return;
+
+	Fmatrix& M = object().XFORM();
+	Fvector pos = M.c;
+	M.setHPB(rot.x, rot.y, rot.z);
+	M.c = pos;
+
+	CPhysicsShell* shell = sh->PPhysicsShell();
+	if (shell)
+	{
+		shell->SetGlTransformDynamic(M);
+		sh->correct_spawn_pos();
+		if (enable)
+			shell->Enable();
+	}
+
+	if (sh->character_physics_support())
+		sh->character_physics_support()->ForceTransform(M);
 }
 
 void CScriptGameObject::ForceSetAngle(Fvector ang, bool bActivate)
