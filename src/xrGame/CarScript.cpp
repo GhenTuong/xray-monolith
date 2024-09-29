@@ -78,9 +78,15 @@ void CCar::script_register(lua_State* L)
 /*----------------------------------------------------------------------------------------------------
 	Crew Manager
 ----------------------------------------------------------------------------------------------------*/
+		.enum_("car_crew")
+		[
+			value("eCarCrewNone", int(CCar::eCarCrewNone)),
+			value("eCarCrewDriver", int(CCar::eCarCrewDriver)),
+			value("eCarCrewGunner", int(CCar::eCarCrewGunner)),
+			value("eCarCrewMember", int(CCar::eCarCrewMember))
+		]
 		.def("GetSeatByCrew", &CCar::GetSeatByCrew)
 		.def("GetCrewBySeat", &CCar::GetCrewBySeat)
-		.def("ChangeSeat", &CCar::ChangeSeat)
 		.def("ChangeSeat", &CCar::ChangeSeat)
 #endif
 		

@@ -107,7 +107,7 @@ CCar::CCar()
 #ifdef CCAR_CHANGE
 	m_crew_manager = xr_new<CCarCrewManager>(this);
 	m_actor_select_seat = NULL;
-	m_is_camera_zoom = false;
+	m_zoom_status = false;
 
 	m_on_before_hit_callback = NULL;
 	m_on_before_use_callback = NULL;
@@ -726,16 +726,23 @@ void CCar::detach_Actor()
 {
 	if (!Owner())
 		return;
-	
+
+	if (CrewManagerAvailable())
+	{
+		m_crew_manager->DetachCrew(Owner());
+	}
+	else
+	{
+		NeutralDrive();
+		Unclutch();
+		ResetKeys();
+		HandBreak();
+	}
+
 	if (OwnerActor())
 		OwnerActor()->setVisible(1);
+
 	CHolderCustom::detach_Actor();
-	PPhysicsShell()->remove_ObjectContactCallback(ActorObstacleCallback);
-	NeutralDrive();
-	Unclutch();
-	ResetKeys();
-	m_current_rpm = m_min_rpm;
-	HandBreak();
 }
 
 bool CCar::attach_Actor(CGameObject *actor)
@@ -765,12 +772,15 @@ bool CCar::attach_Actor(CGameObject *actor)
 			return false;
 		}
 	}
+	else
+	{
+		ReleaseHandBreak();
+	}
 
 	if (OwnerActor())
 		OwnerActor()->setVisible(0);
 	OnCameraChange(ectFirst);
 	processing_activate();
-	ReleaseHandBreak();
 	return true;
 }
 #else
@@ -2735,4 +2745,48 @@ void CCar::ChangeSeat(CGameObject *obj, LPCSTR sec)
 	m_crew_manager->ChangeSeat(obj, sec);
 }
 
+void CCar::OnAttachCrew(u16 type)
+{
+	switch (type)
+	{
+	case eCarCrewDriver:
+		ReleaseHandBreak();
+		break;
+	case eCarCrewGunner:
+		m_zoom_status = false;
+		if (m_car_weapon)
+		{
+			m_car_weapon->Action(CCarWeapon::eWpnFire, 0);
+		}
+		break;
+	case eCarCrewMember:
+		break;
+	default:
+		break;
+	}
+}
+
+void CCar::OnDetachCrew(u16 type)
+{
+	switch (type)
+	{
+	case eCarCrewDriver:
+		NeutralDrive();
+		Unclutch();
+		ResetKeys();
+		HandBreak();
+		break;
+	case eCarCrewGunner:
+		m_zoom_status = false;
+		if (m_car_weapon)
+		{
+			m_car_weapon->Action(CCarWeapon::eWpnFire, 0);
+		}
+		break;
+	case eCarCrewMember:
+		break;
+	default:
+		break;
+	}
+}
 #endif

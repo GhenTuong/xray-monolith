@@ -822,6 +822,8 @@ public:
 	bool attach_Stalker(CGameObject *obj, LPCSTR sec);
 	void detach_Stalker(CGameObject *obj);
 	void ChangeSeat(CGameObject *obj, LPCSTR sec);
+	void OnAttachCrew(u16 type);
+	void OnDetachCrew(u16 type);
 
 	bool IsCameraZoom() { return m_zoom_status; }
 #endif

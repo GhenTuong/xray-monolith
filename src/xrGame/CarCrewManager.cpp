@@ -13,7 +13,8 @@ SSeat::SSeat(CCar *obj)
 	camera->Load("car_firsteye_cam");
 	camera_bone_def = BI_NONE;
 	camera_bone_aim = BI_NONE;
-	zoom_factor_def = 1.0F zoom_factor_aim = 1.0F
+	zoom_factor_def = 1.0F;
+	zoom_factor_aim = 1.0F;
 }
 
 SSeat::~SSeat()
@@ -198,6 +199,7 @@ bool CCarCrewManager::AttachCrew(CGameObject *obj, LPCSTR sec)
 	if (GetCrewBySeat(seat))
 		return false;
 	DetachCrew(obj);
+	m_car->OnAttachCrew(seat->type);
 	m_crew.insert(mk_pair(obj, seat));
 	return true;
 }
@@ -209,6 +211,7 @@ void CCarCrewManager::DetachCrew(CGameObject *obj)
 	xr_map<CGameObject *, SSeat *>::iterator i = m_crew.find(obj);
 	if (i == m_crew.end())
 		return;
+	m_car->OnDetachCrew(i->second->type);
 	m_crew.erase(i);
 }
 
