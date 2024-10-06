@@ -127,7 +127,12 @@ CKinematics::~CKinematics()
 
 void CKinematics::IBoneInstances_Create()
 {
+#if 1
+/* GT: Increase bones limitation to 128. */
+// VERIFY2(bones->size() < 128, "More than 64 bones is a crazy thing!");
+#else
 	// VERIFY2				(bones->size() < 64, "More than 64 bones is a crazy thing!");
+#endif
 	u32 size = bones->size();
 	bone_instances = xr_alloc<CBoneInstance>(size);
 	for (u32 i = 0; i < size; i++)
@@ -221,9 +226,14 @@ void CKinematics::Load(const char* N, IReader* data, u32 dwFlags)
 	hidden_bones.zero();
 	visimask.zero();
 	int dwCount = data->r_u32();
+#if 1
+/* GT: Increase bones limitation to 128. */
+	VERIFY3(dwCount <= 128, "More than 64 bones is a crazy thing!", N);
+#else
 	// Msg				("!!! %d bones",dwCount);
 	// if (dwCount >= 64)	Msg			("!!! More than 64 bones is a crazy thing! (%d), %s",dwCount,N);
 	VERIFY3(dwCount <= 64, "More than 64 bones is a crazy thing!", N);
+#endif
 	for (; dwCount; dwCount--)
 	{
 		string256 buf;

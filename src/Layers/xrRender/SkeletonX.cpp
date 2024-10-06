@@ -234,6 +234,10 @@ void CSkeletonX::_Load(const char* N, IReader* data, u32& dwVertCount)
 	hw_bones_cnt					= 0;
 #endif
 
+#ifdef USE_DX11
+	hw_bones_cnt = 254;
+#endif
+
 	u32 dwVertType, size, it, crc;
 	dwVertType = data->r_u32();
 	dwVertCount = data->r_u32();

@@ -503,7 +503,12 @@ void CSkeletonX_ext::_Load_hw(Fvisual& V, void* _verts_)
 			{
 				Fvector2 uv;
 				uv.set(src->u, src->v);
+#if 1
+/* GT: Increase bones limitation to 128. */
+				dst->set(src->P, src->N, src->T, src->B, uv, src->matrix);
+#else
 				dst->set(src->P, src->N, src->T, src->B, uv, src->matrix * 3);
+#endif
 				dst++;
 				src++;
 			}
@@ -550,7 +555,12 @@ void CSkeletonX_ext::_Load_hw(Fvisual& V, void* _verts_)
 			{
 				Fvector2 uv;
 				uv.set(src->u, src->v);
+#if 1
+/* GT: Increase bones limitation to 128. */
+				dst->set(src->P, src->N, src->T, src->B, uv, int(src->matrix0), int(src->matrix1), src->w);
+#else
 				dst->set(src->P, src->N, src->T, src->B, uv, int(src->matrix0) * 3, int(src->matrix1) * 3, src->w);
+#endif
 				dst++;
 				src++;
 			}
@@ -597,8 +607,13 @@ void CSkeletonX_ext::_Load_hw(Fvisual& V, void* _verts_)
 			{
 				Fvector2 uv;
 				uv.set(src->u, src->v);
+#if 1
+/* GT: Increase bones limitation to 128. */
+				dst->set(src->P, src->N, src->T, src->B, uv, int(src->m[0]), int(src->m[1]), int(src->m[2]), src->w[0], src->w[1]);
+#else
 				dst->set(src->P, src->N, src->T, src->B, uv, int(src->m[0]) * 3, int(src->m[1]) * 3, int(src->m[2]) * 3,
 				         src->w[0], src->w[1]);
+#endif
 				dst++;
 				src++;
 			}
@@ -690,7 +705,12 @@ void CSkeletonX_ext::_Load_hw(Fvisual& V, void* _verts_)
 			{
 				Fvector2 uv;
 				uv.set(src->u, src->v);
+#if 1
+/* GT: Increase bones limitation to 128. */
+				dst->set(src->P, src->N, src->T, src->B, uv, src->matrix);
+#else
 				dst->set(src->P, src->N, src->T, src->B, uv, src->matrix * 3);
+#endif
 				dst++;
 				src++;
 			}
@@ -714,7 +734,12 @@ void CSkeletonX_ext::_Load_hw(Fvisual& V, void* _verts_)
 			{
 				Fvector2 uv;
 				uv.set(src->u, src->v);
+#if 1
+/* GT: Increase bones limitation to 128. */
+				dst->set(src->P, src->N, src->T, src->B, uv, int(src->matrix0), int(src->matrix1), src->w);
+#else
 				dst->set(src->P, src->N, src->T, src->B, uv, int(src->matrix0) * 3, int(src->matrix1) * 3, src->w);
+#endif
 				dst++;
 				src++;
 			}
@@ -738,8 +763,13 @@ void CSkeletonX_ext::_Load_hw(Fvisual& V, void* _verts_)
 			{
 				Fvector2 uv;
 				uv.set(src->u, src->v);
+#if 1
+/* GT: Increase bones limitation to 128. */
+				dst->set(src->P, src->N, src->T, src->B, uv, int(src->m[0]), int(src->m[1]), int(src->m[2]), src->w[0], src->w[1]);
+#else
 				dst->set(src->P, src->N, src->T, src->B, uv, int(src->m[0]) * 3, int(src->m[1]) * 3, int(src->m[2]) * 3,
 				         src->w[0], src->w[1]);
+#endif
 				dst++;
 				src++;
 			}
