@@ -1151,6 +1151,9 @@ void CActor::UpdateCL()
 	cam_Update(float(Device.dwTimeDelta) / 1000.0f, currentFOV());
 
 #ifdef CWEAPONSTATMGUN_CHANGE
+	CCar *car = smart_cast<CCar *>(Holder());
+#endif
+#ifdef CWEAPONSTATMGUN_CHANGE
 	CWeaponStatMgun *stm = smart_cast<CWeaponStatMgun *>(Holder());
 #endif
 
@@ -1207,10 +1210,19 @@ void CActor::UpdateCL()
 			g_pGamePersistent->m_pGShaderConstants->hud_params.w = Device.m_SecondViewport.IsSVPFrame();
 		}
 	}
+#ifdef CCAR_CHANGE
+	else if (car && !car->IsCameraZoom())
+	{
+		HUD().SetCrosshairDisp(0.05);
+		HUD().ShowCrosshair(true);
+		g_pGamePersistent->m_pGShaderConstants->hud_params.set(0.f, 0.f, 0.f, 0.f);
+		g_pGamePersistent->m_pGShaderConstants->m_blender_mode.set(0.f, 0.f, 0.f, 0.f);
+	}
+#endif
 #ifdef CWEAPONSTATMGUN_CHANGE
 	else if (stm && !stm->IsCameraZoom())
 	{
-		HUD().SetCrosshairDisp(stm->FireDispersionBase());
+		HUD().SetCrosshairDisp(0.05);
 		HUD().ShowCrosshair(true);
 		g_pGamePersistent->m_pGShaderConstants->hud_params.set(0.f, 0.f, 0.f, 0.f);
 		g_pGamePersistent->m_pGShaderConstants->m_blender_mode.set(0.f, 0.f, 0.f, 0.f);
@@ -1486,9 +1498,10 @@ bool CActor::attach_Vehicle(CHolderCustom *object, bool bForce)
 			CCar *car = smart_cast<CCar *>(object);
 			if (car)
 			{
+#ifdef CCAR_CHANGE
 				if (car->CrewManagerAvailable())
 				{
-					car->ActorPlayCrewAnimation();
+					car->CrewAnimationUpdate(this);
 				}
 				else
 				{
@@ -1499,6 +1512,7 @@ bool CActor::attach_Vehicle(CHolderCustom *object, bool bForce)
 					V->PlayCycle(anims.idles[0], FALSE);
 					CStepManager::on_animation_start(MotionID(), 0);
 				}
+#endif
 			}
 
 #ifdef CWEAPONSTATMGUN_CHANGE

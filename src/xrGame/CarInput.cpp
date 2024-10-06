@@ -171,53 +171,53 @@ void CCar::OnKeyboardPress(int cmd)
 		OnCameraChange(ectFree);
 		break;
 	case kACCEL:
-		if (GetCrewType(OwnerActor(), NULL) == eCarCrewDriver)
+		if (CanActorDrive())
 			TransmissionUp();
 		break;
 	case kCROUCH:
-		if (GetCrewType(OwnerActor(), NULL) == eCarCrewDriver)
+		if (CanActorDrive())
 			TransmissionDown();
 		break;
 	case kFWD:
-		if (GetCrewType(OwnerActor(), NULL) == eCarCrewDriver)
+		if (CanActorDrive())
 			PressForward();
 		break;
 	case kBACK:
-		if (GetCrewType(OwnerActor(), NULL) == eCarCrewDriver)
+		if (CanActorDrive())
 			PressBack();
 		break;
 	case kR_STRAFE:
-		if (GetCrewType(OwnerActor(), NULL) == eCarCrewDriver)
+		if (CanActorDrive())
 		{
 			PressRight();
 			OwnerActor()->steer_Vehicle(1);
 		}
 		break;
 	case kL_STRAFE:
-		if (GetCrewType(OwnerActor(), NULL) == eCarCrewDriver)
+		if (CanActorDrive())
 		{
 			PressLeft();
 			OwnerActor()->steer_Vehicle(-1);
 		}
 		break;
 	case kJUMP:
-		if (GetCrewType(OwnerActor(), NULL) == eCarCrewDriver)
+		if (CanActorDrive())
 			PressBreaks();
 		break;
 	case kDETECTOR:
-		if (GetCrewType(OwnerActor(), NULL) == eCarCrewDriver)
+		if (CanActorDrive())
 			SwitchEngine();
 		break;
 	case kWPN_FUNC:
 		break;
 	case kTORCH:
-		if (GetCrewType(OwnerActor(), NULL) == eCarCrewDriver)
+		if (CanActorDrive())
 			m_lights.SwitchHeadLights();
 		break;
 	case kUSE:
 		break;
 	case kWPN_FIRE:
-		if (GetCrewType(OwnerActor(), NULL) == eCarCrewGunner && HasWeapon())
+		if (CanActorShoot() && HasWeapon())
 			m_car_weapon->Action(CCarWeapon::eWpnFire, 1);
 		break;
 	case kWPN_ZOOM:
@@ -280,33 +280,33 @@ void CCar::OnKeyboardRelease(int cmd)
 	case kACCEL:
 		break;
 	case kFWD:
-		if (GetCrewType(OwnerActor(), NULL) == eCarCrewDriver)
+		if (CanActorDrive())
 		ReleaseForward();
 		break;
 	case kBACK:
-		if (GetCrewType(OwnerActor(), NULL) == eCarCrewDriver)
+		if (CanActorDrive())
 		ReleaseBack();
 		break;
 	case kL_STRAFE:
-		if (GetCrewType(OwnerActor(), NULL) == eCarCrewDriver)
+		if (CanActorDrive())
 		{
 			ReleaseLeft();
 			OwnerActor()->steer_Vehicle(0);
 		}
 		break;
 	case kR_STRAFE:
-		if (GetCrewType(OwnerActor(), NULL) == eCarCrewDriver)
+		if (CanActorDrive())
 		{
 			ReleaseRight();
 			OwnerActor()->steer_Vehicle(0);
 		}
 		break;
 	case kJUMP:
-		if (GetCrewType(OwnerActor(), NULL) == eCarCrewDriver)
+		if (CanActorDrive())
 			ReleaseBreaks();
 		break;
 	case kWPN_FIRE:
-		if (GetCrewType(OwnerActor(), NULL) == eCarCrewGunner && HasWeapon())
+		if (CanActorShoot() && HasWeapon())
 			m_car_weapon->Action(CCarWeapon::eWpnFire, 0);
 		break;
 	case kWPN_ZOOM:

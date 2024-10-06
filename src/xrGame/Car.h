@@ -777,12 +777,7 @@ public:
 private:
 	bool m_inventory_flag;
 	xr_vector<u16> m_inventory_bone;
-
 	float m_max_carry_weight_def;
-
-	u16 m_balance_bone;
-	float m_balance_factor;
-	void SelfBalanceUpdate();
 
 public:
 	bool IsBoneInventory(u16 bone_id);
@@ -805,23 +800,28 @@ public:
 	enum ECarCrew
 	{
 		eCarCrewNone = 0,
-		eCarCrewDriver,
+		eCarCrewMember,
 		eCarCrewGunner,
-		eCarCrewMember
+		eCarCrewDriver
 	};
+	CCarCrewManager *CrewManager() { return m_crew_manager; }
+	bool CrewManagerAvailable();
 
 	static void CrewObstacleCallback(bool &do_colide, bool bo1, dContact &c, SGameMtl *material_1, SGameMtl *material_2);
 	LPCSTR GetSeatByCrew(CGameObject *obj);
 	CGameObject *GetCrewBySeat(LPCSTR sec);
 	Fvector CrewExitPosition(CGameObject *obj);
-	void ActorPlayCrewAnimation();
+	void CrewAnimationUpdate(CGameObject *obj);
 
 	u16 GetCrewType(CGameObject *obj, LPCSTR sec);
+	bool CanActorDrive();
+	bool CanActorShoot();
 
-	bool CrewManagerAvailable();
+	bool attach_Actor_Crew(CGameObject *obj);
+	void detach_Actor_Crew();
 	bool attach_Stalker(CGameObject *obj, LPCSTR sec);
 	void detach_Stalker(CGameObject *obj);
-	void ChangeSeat(CGameObject *obj, LPCSTR sec);
+	void CrewChangeSeat(CGameObject *obj, LPCSTR sec);
 	void OnAttachCrew(u16 type);
 	void OnDetachCrew(u16 type);
 

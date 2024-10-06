@@ -33,7 +33,7 @@ void CCar::cam_Update(float dt, float fov)
 	D.set(0, 0, 0);
 	CCameraBase *cam = Camera();
 
-	SSeat *seat = (m_crew_manager->Available()) ? m_crew_manager->GetSeatByCrew(OwnerActor()) : NULL;
+	SSeat *seat = (CrewManagerAvailable()) ? m_crew_manager->GetSeatByCrew(OwnerActor()) : NULL;
 	switch (cam->tag)
 	{
 	case ectFirst:
@@ -41,6 +41,7 @@ void CCar::cam_Update(float dt, float fov)
 		{
 			u16 bone_id = (IsCameraZoom() && (seat->camera_bone_aim != BI_NONE)) ? seat->camera_bone_aim : seat->camera_bone_def;
 			XFORM().transform_tiny(P, Visual()->dcast_PKinematics()->LL_GetTransform(bone_id).c);
+			Msg("%s:%d %s", __FUNCTION__, __LINE__, Visual()->dcast_PKinematics()->LL_BoneName_dbg(bone_id));
 		}
 		else
 		{
@@ -113,23 +114,33 @@ void CCar::OnCameraChange(int type)
 		}
 	}
 
-	if (!active_camera || active_camera->tag != type)
-	{
-
 #ifdef CCAR_CHANGE
-		SSeat *seat = (m_crew_manager->Available()) ? m_crew_manager->GetSeatByCrew(OwnerActor()) : NULL;
+	if (CrewManagerAvailable())
+	{
+		SSeat *seat = m_crew_manager->GetSeatByCrew(OwnerActor());
 		if (seat && type == ectFirst)
 		{
 			active_camera = seat->camera;
+			Msg("%s:%d %s", __FUNCTION__, __LINE__, seat->section);
 		}
 		else
 		{
+			Msg("%s:%d %d", __FUNCTION__, __LINE__, type);
 			active_camera = camera[type];
 		}
-#else
-		active_camera = camera[type];
+		if (type == ectFree)
+		{
+			Fvector xyz;
+			XFORM().getXYZi(xyz);
+			active_camera->yaw = xyz.y;
+		}
+		return;
+	}
 #endif
 
+	if (!active_camera || active_camera->tag != type)
+	{
+		active_camera = camera[type];
 		if (ectFree == type)
 		{
 			Fvector xyz;

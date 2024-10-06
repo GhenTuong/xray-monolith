@@ -87,7 +87,8 @@ void CCar::script_register(lua_State* L)
 		]
 		.def("GetSeatByCrew", &CCar::GetSeatByCrew)
 		.def("GetCrewBySeat", &CCar::GetCrewBySeat)
-		.def("ChangeSeat", &CCar::ChangeSeat)
+		.def("GetCrewType", &CCar::GetCrewType)
+		.def("CrewChangeSeat", &CCar::CrewChangeSeat)
 #endif
 		
 		.def(constructor<>())

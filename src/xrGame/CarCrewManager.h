@@ -18,8 +18,14 @@ struct SSeat
 	u16 type;
 	u16 seat_id;
 	u16 door_id;
-	LPCSTR animation;
 	Fvector exit_position;
+
+	LPCSTR anim_play;
+	LPCSTR anim_idle;
+	LPCSTR anim_fire;
+	LPCSTR anim_ns;
+	LPCSTR anim_ls;
+	LPCSTR anim_rs;
 
 	CCameraBase *camera;
 	u16 camera_bone_def;
@@ -35,8 +41,9 @@ class CCarCrewManager
 {
 private:
 	CCar *m_car;
-	xr_vector<SSeat> m_seat;
+	xr_map<u16, SSeat *> m_seat;
 	xr_map<CGameObject *, SSeat *> m_crew;
+	void Clear();
 
 public:
 	CCarCrewManager(CCar *obj);
@@ -53,5 +60,5 @@ public:
 	CGameObject *GetCrewBySeat(SSeat *seat);
 	bool AttachCrew(CGameObject *obj, LPCSTR sec);
 	void DetachCrew(CGameObject *obj);
-	void ChangeSeat(CGameObject *obj, LPCSTR sec);
+	void CrewChangeSeat(CGameObject *obj, LPCSTR sec);
 };

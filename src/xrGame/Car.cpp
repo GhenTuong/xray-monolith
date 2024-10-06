@@ -121,8 +121,6 @@ CCar::CCar()
 	m_inventory_flag = false;
 	m_inventory_bone.clear();
 	m_max_carry_weight_def = 0.0f;
-	m_balance_bone = BI_NONE;
-	m_balance_factor = 0.0f;
 #endif
 }
 
@@ -245,6 +243,8 @@ BOOL CCar::net_Spawn(CSE_Abstract* DC)
 	}
 
 #ifdef CCAR_CHANGE
+	m_crew_manager->Load();
+
 	PPhysicsShell()->Enable();
 	PPhysicsShell()->add_ObjectContactCallback(CrewObstacleCallback);
 #endif
@@ -525,29 +525,36 @@ void CCar::VisualUpdate(float fov)
 		}
 		else
 		{
+			if (Owner())
+			{
+				Owner()->XFORM().mul_43(XFORM(), m_sits_transforms[0]);
+			}
 		}
 	}
 
-	if (OwnerActor() && OwnerActor()->IsMyCamera())
+	if (CrewManagerAvailable())
 	{
-		cam_Update(Device.fTimeDelta, fov);
-		OwnerActor()->Cameras().UpdateFromCamera(Camera());
-		if (eacFirstEye == active_camera->tag && !Level().Cameras().GetCamEffector(cefDemo))
-			OwnerActor()->Cameras().ApplyDevice(VIEWPORT_NEAR);
-
-		if (m_car_weapon && m_car_weapon->IsActive())
+		if (OwnerActor() && OwnerActor()->IsMyCamera())
 		{
-			if (IsCameraZoom())
+			cam_Update(Device.fTimeDelta, g_fov);
+			OwnerActor()->Cameras().UpdateFromCamera(Camera());
+			if (eacFirstEye == active_camera->tag && !Level().Cameras().GetCamEffector(cefDemo))
+				OwnerActor()->Cameras().ApplyDevice(VIEWPORT_NEAR);
+
+			if (m_car_weapon && m_car_weapon->IsActive())
 			{
-				Fvector dir = Camera()->Direction();
-				SetParam(CCarWeapon::eWpnDesiredDir, Fvector2().set(dir.getH(), dir.getP()));
-			}
-			else
-			{
-				Fvector pos = Camera()->Position();
-				Fvector dir = Camera()->Direction();
-				collide::rq_result &R = HUD().GetCurrentRayQuery();
-				SetParam(CCarWeapon::eWpnDesiredPos, Fvector().mad(pos, dir, (R.range > 3.f) ? R.range : 30.f));
+				if (IsCameraZoom())
+				{
+					Fvector dir = Camera()->Direction();
+					SetParam(CCarWeapon::eWpnDesiredDir, Fvector2().set(dir.getH(), dir.getP()));
+				}
+				else
+				{
+					Fvector pos = Camera()->Position();
+					Fvector dir = Camera()->Direction();
+					collide::rq_result &R = HUD().GetCurrentRayQuery();
+					SetParam(CCarWeapon::eWpnDesiredPos, Fvector().mad(pos, dir, (R.range > 3.f) ? R.range : 30.f));
+				}
 			}
 		}
 	}
@@ -722,22 +729,15 @@ void CCar::ApplyDamage(u16 level)
 }
 
 #ifdef CCAR_CHANGE
-void CCar::detach_Actor()
+void CCar::detach_Actor_Crew()
 {
 	if (!Owner())
 		return;
 
-	if (CrewManagerAvailable())
-	{
-		m_crew_manager->DetachCrew(Owner());
-	}
-	else
-	{
-		NeutralDrive();
-		Unclutch();
-		ResetKeys();
-		HandBreak();
-	}
+	m_crew_manager->DetachCrew(Owner());
+	NeutralDrive();
+	Unclutch();
+	ResetKeys();
 
 	if (OwnerActor())
 		OwnerActor()->setVisible(1);
@@ -745,36 +745,29 @@ void CCar::detach_Actor()
 	CHolderCustom::detach_Actor();
 }
 
-bool CCar::attach_Actor(CGameObject *actor)
+bool CCar::attach_Actor_Crew(CGameObject *actor)
 {
 	if (Owner() || CPHDestroyable::Destroyed())
 		return false;
 
 	CHolderCustom::attach_Actor(actor);
 
-	if (CrewManagerAvailable())
+	bool is_attach_crew_success = false;
+	if (m_actor_select_seat)
 	{
-		bool is_attach_crew_success = false;
-		if (m_actor_select_seat)
-		{
-			is_attach_crew_success = m_crew_manager->AttachCrew(Owner(), m_actor_select_seat);
-		}
-		else
-		{
-			SSeat *seat = m_crew_manager->GetSeatEmpty();
-			is_attach_crew_success = seat && m_crew_manager->AttachCrew(Owner(), seat->section);
-		}
-
-		m_actor_select_seat = NULL;
-		if (is_attach_crew_success == false)
-		{
-			CHolderCustom::detach_Actor();
-			return false;
-		}
+		is_attach_crew_success = m_crew_manager->AttachCrew(Owner(), m_actor_select_seat);
 	}
 	else
 	{
-		ReleaseHandBreak();
+		SSeat *seat = m_crew_manager->GetSeatEmpty();
+		is_attach_crew_success = seat && m_crew_manager->AttachCrew(Owner(), seat->section);
+	}
+	m_actor_select_seat = NULL;
+
+	if (is_attach_crew_success == false)
+	{
+		CHolderCustom::detach_Actor();
+		return false;
 	}
 
 	if (OwnerActor())
@@ -783,9 +776,18 @@ bool CCar::attach_Actor(CGameObject *actor)
 	processing_activate();
 	return true;
 }
-#else
+#endif
+
 void CCar::detach_Actor()
 {
+#ifdef CCAR_CHANGE
+	if (CrewManagerAvailable())
+	{
+		detach_Actor_Crew();
+		return;
+	}
+#endif
+
 	if (!Owner()) return;
 	Owner()->setVisible(1);
 	CHolderCustom::detach_Actor();
@@ -806,6 +808,13 @@ void CCar::detach_Actor()
 
 bool CCar::attach_Actor(CGameObject* actor)
 {
+#ifdef CCAR_CHANGE
+	if (CrewManagerAvailable())
+	{
+		return attach_Actor_Crew(actor);
+	}
+#endif
+
 	if (Owner() || CPHDestroyable::Destroyed()) return false;
 	CHolderCustom::attach_Actor(actor);
 
@@ -839,7 +848,6 @@ bool CCar::attach_Actor(CGameObject* actor)
 
 	return true;
 }
-#endif
 
 bool CCar::is_Door(u16 id, xr_map<u16, SDoor>::iterator& i)
 {
@@ -1011,8 +1019,6 @@ void CCar::ParseDefinitions()
 	m_damage_particles.Init(this);
 
 #ifdef CCAR_CHANGE
-	m_crew_manager->Load();
-
 	m_max_power_def = m_max_power;
 	m_fuel_tank_def = m_fuel_tank;
 	m_fuel_consumption_def = m_fuel_consumption;
@@ -1053,9 +1059,6 @@ void CCar::ParseDefinitions()
 		GetInventory()->SetMaxWeight(READ_IF_EXISTS(pSettings, r_float, cNameSect_str(), "max_weight", 0.0f));
 		m_max_carry_weight_def = GetInventory()->GetMaxWeight();
 	}
-
-	m_balance_bone = ini->line_exist("config", "balance_bone") ? K->LL_BoneID(ini->r_string("config", "balance_bone")) : BI_NONE;
-	m_balance_factor = READ_IF_EXISTS(ini, r_float, "config", "balance_factor", 1.0F);
 #endif
 }
 
@@ -2135,10 +2138,6 @@ void CCar::PhDataUpdate(float step)
 
 	m_steer_angle = m_steering_wheels.begin()->GetSteerAngle() * 0.1f + m_steer_angle * 0.9f;
 	VERIFY(_valid(m_steer_angle));
-
-#ifdef CCAR_CHANGE
-	SelfBalanceUpdate();
-#endif
 }
 
 BOOL CCar::UsedAI_Locations()
@@ -2569,36 +2568,6 @@ void CCar::StartEngineForce()
 	b_starting = true;
 }
 
-void CCar::SelfBalanceUpdate()
-{
-	if (!Owner() || (m_balance_bone == BI_NONE))
-		return;
-
-	CPhysicsElement *E = m_pPhysicsShell->get_Element(m_balance_bone);
-	if (E)
-	{
-		Fvector velocity;
-		GetVelocity(velocity);
-		float speed = velocity.magnitude();
-
-		Fvector ang;
-		E->get_AngularVel(ang);
-
-		float ip = XFORM().i.getP();
-		if (_abs(ip) > 0.01)
-		{
-			float force = m_pPhysicsShell->getMass() * m_balance_factor * (ip / PI_DIV_2);
-			// XFORM().transform_dir(vec);
-			Msg("%s:%d %.2f | %.1f %.1f %.1f", __FUNCTION__, __LINE__, force, ang.x, ang.y, ang.z);
-			E->applyRelTorque(0, 0, -force);
-		}
-	}
-	else
-	{
-		Msg("%s:%d bone %s no element", __FUNCTION__, __LINE__, Visual()->dcast_PKinematics()->LL_BoneName_dbg(m_balance_bone));
-	}
-}
-
 /*----------------------------------------------------------------------------------------------------
 	Inventory
 ----------------------------------------------------------------------------------------------------*/
@@ -2671,7 +2640,7 @@ void CCar::CrewObstacleCallback(bool &do_colide, bool bo1, dContact &c, SGameMtl
 		return;
 	}
 
-	if (car->m_crew_manager->GetSeatByCrew(who))
+	if (car->CrewManagerAvailable() && car->CrewManager()->GetSeatByCrew(who))
 	{
 		do_colide = false;
 		return;
@@ -2707,27 +2676,45 @@ Fvector CCar::CrewExitPosition(CGameObject *obj)
 	return Fvector().set(Position());
 }
 
-void CCar::ActorPlayCrewAnimation()
+void CCar::CrewAnimationUpdate(CGameObject *obj)
 {
-	if (OwnerActor())
-	{
-		SSeat *seat = m_crew_manager->GetSeatByCrew(OwnerActor());
-		if (seat == NULL)
-			return;
-		OwnerActor()->Visual()->dcast_PKinematicsAnimated()->PlayCycle(seat->animation, FALSE);
-		OwnerActor()->on_animation_start(MotionID(), 0);
-	}
-}
+	SSeat *seat = m_crew_manager->GetSeatByCrew(obj);
+	if (seat == NULL)
+		return;
 
-u16 CCar::GetCrewType(CGameObject *obj, LPCSTR sec)
-{
-	SSeat *seat = (obj) ? m_crew_manager->GetSeatByCrew(obj) : m_crew_manager->GetSeatByName(sec);
-	return (seat) ? seat->type : eCarCrewNone;
+	LPCSTR anim = NULL;
+	if (seat->type == eCarCrewDriver)
+	{
+		switch (e_state_steer)
+		{
+		case right:
+			anim = seat->anim_rs;
+			break;
+		case idle:
+			anim = seat->anim_ns;
+			break;
+			anim = seat->anim_ls;
+		case left:
+			break;
+		default:
+			break;
+		}
+	}
+	else if (seat->type == eCarCrewGunner)
+	{
+		anim = (m_car_weapon && m_car_weapon->IsWorking()) ? seat->anim_fire : seat->anim_idle;
+	}
+
+	if (anim && (anim != seat->anim_play))
+	{
+		obj->Visual()->dcast_PKinematicsAnimated()->PlayCycle(anim, FALSE);
+		seat->anim_play = anim;
+	}
 }
 
 bool CCar::CrewManagerAvailable()
 {
-	return m_crew_manager->Available();
+	return m_crew_manager && m_crew_manager->Available();
 }
 
 bool CCar::attach_Stalker(CGameObject *obj, LPCSTR sec)
@@ -2740,13 +2727,14 @@ void CCar::detach_Stalker(CGameObject *obj)
 	m_crew_manager->DetachCrew(obj);
 }
 
-void CCar::ChangeSeat(CGameObject *obj, LPCSTR sec)
+void CCar::CrewChangeSeat(CGameObject *obj, LPCSTR sec)
 {
-	m_crew_manager->ChangeSeat(obj, sec);
+	m_crew_manager->CrewChangeSeat(obj, sec);
 }
 
 void CCar::OnAttachCrew(u16 type)
 {
+	Msg("%s:%d %d", __FUNCTION__, __LINE__, type);
 	switch (type)
 	{
 	case eCarCrewDriver:
@@ -2754,10 +2742,8 @@ void CCar::OnAttachCrew(u16 type)
 		break;
 	case eCarCrewGunner:
 		m_zoom_status = false;
-		if (m_car_weapon)
-		{
-			m_car_weapon->Action(CCarWeapon::eWpnFire, 0);
-		}
+		Action(CCarWeapon::eWpnActivate, 1);
+		Action(CCarWeapon::eWpnFire, 0);
 		break;
 	case eCarCrewMember:
 		break;
@@ -2768,6 +2754,7 @@ void CCar::OnAttachCrew(u16 type)
 
 void CCar::OnDetachCrew(u16 type)
 {
+	Msg("%s:%d %d", __FUNCTION__, __LINE__, type);
 	switch (type)
 	{
 	case eCarCrewDriver:
@@ -2778,15 +2765,38 @@ void CCar::OnDetachCrew(u16 type)
 		break;
 	case eCarCrewGunner:
 		m_zoom_status = false;
-		if (m_car_weapon)
-		{
-			m_car_weapon->Action(CCarWeapon::eWpnFire, 0);
-		}
+		Action(CCarWeapon::eWpnActivate, 0);
+		Action(CCarWeapon::eWpnFire, 0);
 		break;
 	case eCarCrewMember:
 		break;
 	default:
 		break;
 	}
+}
+
+u16 CCar::GetCrewType(CGameObject *obj, LPCSTR sec)
+{
+	SSeat *seat = (obj) ? m_crew_manager->GetSeatByCrew(obj) : m_crew_manager->GetSeatByName(sec);
+	return (seat) ? seat->type : eCarCrewNone;
+}
+
+bool CCar::CanActorDrive()
+{
+	if (GetCrewType(OwnerActor(), NULL) == eCarCrewDriver)
+	{
+		return true;
+	}
+
+	return false;
+}
+
+bool CCar::CanActorShoot()
+{
+	if (GetCrewType(OwnerActor(), NULL) == eCarCrewGunner)
+	{
+		return true;
+	}
+	return false;
 }
 #endif
