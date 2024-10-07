@@ -122,7 +122,12 @@ CCF_Skeleton::CCF_Skeleton(CObject* O) : ICollisionForm(O, cftObject)
 	//bv_box.set (K->vis.box);
 	bv_box.set(pVisual->getVisData().box);
 	bv_box.getsphere(bv_sphere.P, bv_sphere.R);
+
+#if 1 /* GT: Increase bones limitation to 128. */
+	vis_mask.zero();
+#else
 	vis_mask = 0;
+#endif
 }
 
 void CCF_Skeleton::BuildState()

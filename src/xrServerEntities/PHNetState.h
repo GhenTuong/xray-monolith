@@ -1,6 +1,10 @@
 #ifndef  PHNETSTATE_H
 #define  PHNETSTATE_H
 
+#if 1 /* GT: Increase bones limitation to 128. */
+#include "..\xrEngine\VisMask.h"
+#endif
+
 class NET_Packet;
 
 struct SPHNetState
@@ -45,7 +49,11 @@ DEFINE_VECTOR(SPHNetState, PHNETSTATE_VECTOR, PHNETSTATE_I);
 
 struct SPHBonesData
 {
+#if 1 /* GT: Increase bones limitation to 128. */
+	VisMask bones_mask;
+#else
 	u64 bones_mask;
+#endif
 	u16 root_bone;
 	PHNETSTATE_VECTOR bones;
 	Fvector m_min;

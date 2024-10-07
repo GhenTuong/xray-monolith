@@ -6,6 +6,10 @@
 #include		"../../xrEngine/bone.h"
 #include		"../../Include/xrRender/Kinematics.h"
 
+#if 1 /* GT: Increase bones limitation to 128. */
+#include "..\..\xrEngine\VisMask.h"
+#endif
+
 // consts
 extern xrCriticalSection UCalc_Mutex;
 
@@ -141,8 +145,13 @@ protected:
 	u32 UCalc_Time;
 	s32 UCalc_Visibox;
 
+#if 1 /* GT: Increase bones limitation to 128. */
+	VisMask visimask;
+	VisMask hidden_bones;
+#else
 	Flags64 visimask;
 	Flags64 hidden_bones;
+#endif
 
 	CSkeletonX* LL_GetChild(u32 idx);
 
@@ -228,11 +237,18 @@ public:
 
 	u16 _BCL LL_BoneCount() const { return u16(bones->size()); }
 
+#if 1 /* GT: Increase bones limitation to 128. */
+	u16 LL_VisibleBoneCount()
+	{
+		return visimask.count();
+	}
+#else
 	u16 LL_VisibleBoneCount()
 	{
 		u64 F = visimask.flags & ((u64(1) << u64(LL_BoneCount())) - 1);
 		return (u16)btwCount1(F);
 	}
+#endif
 
 	ICF Fmatrix& _BCL LL_GetTransform(u16 bone_id) { return LL_GetBoneInstance(bone_id).mTransform; }
 	ICF const Fmatrix& _BCL LL_GetTransform(u16 bone_id) const { return LL_GetBoneInstance(bone_id).mTransform; }
@@ -256,15 +272,29 @@ public:
 		iRoot = bone_id;
 	}
 
+#if 1 /* GT: Increase bones limitation to 128. */
+	BOOL _BCL LL_GetBoneVisible(u16 bone_id)
+	{
+		VERIFY(bone_id < LL_BoneCount());
+		return visimask.is(bone_id);
+	}
+#else
 	BOOL _BCL LL_GetBoneVisible(u16 bone_id)
 	{
 		VERIFY(bone_id<LL_BoneCount());
 		return visimask.is(u64(1) << bone_id);
 	}
+#endif
 
 	void LL_SetBoneVisible(u16 bone_id, BOOL val, BOOL bRecursive);
+#if 1 /* GT: Increase bones limitation to 128. */
+	VisMask _BCL LL_GetBonesVisible() { return visimask; }
+	void LL_SetBonesVisible(VisMask mask);
+	void LL_SetBonesVisibleAll() { visimask.set_all(); };
+#else
 	u64 _BCL LL_GetBonesVisible() { return visimask.get(); }
 	void LL_SetBonesVisible(u64 mask);
+#endif
 
 	// Main functionality
 	virtual void CalculateBones(BOOL bForceExact = FALSE); // Recalculate skeleton

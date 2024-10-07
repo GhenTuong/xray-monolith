@@ -51,7 +51,11 @@ void CHangingLamp::RespawnInit()
 	if (Visual())
 	{
 		IKinematics* K = smart_cast<IKinematics*>(Visual());
+#if 1 /* GT: Increase bones limitation to 128. */
+		K->LL_SetBonesVisibleAll();
+#else
 		K->LL_SetBonesVisible(u64(-1));
+#endif
 		K->CalculateBones_Invalidate();
 		K->CalculateBones(TRUE);
 	}
@@ -447,9 +451,13 @@ void CHangingLamp::TurnOff()
 		IKinematics* K = smart_cast<IKinematics*>(Visual());
 		VERIFY(K);
 		K->LL_SetBoneVisible(light_bone, FALSE, TRUE);
+#if 1 /* GT: Increase bones limitation to 128. */
+		VERIFY2(K->LL_GetBonesVisible()._visimask.flags != 0, make_string("can not Turn Off lamp: %s, visual %s - because all bones become invisible", cNameVisual().c_str(), cName().c_str()));
+#else
 		VERIFY2(K->LL_GetBonesVisible() != 0,
 		        make_string("can not Turn Off lamp: %s, visual %s - because all bones become invisible", cNameVisual().
 			        c_str(), cName().c_str() ));
+#endif
 	}
 	processing_deactivate();
 	m_bState = 0;

@@ -808,9 +808,16 @@ void CPHShell::AddElementRecursive(CPhysicsElement* root_e, u16 id, Fmatrix glob
 	Fmatrix fm_position;
 	fm_position.set(bone_data.get_bind_transform());
 	fm_position.mulA_43(global_parent);
+
+#if 1 /* GT: Increase bones limitation to 128. */
+	VisMask mask = m_pKinematics->LL_GetBonesVisible();
+	const bool no_visible = !mask.is(id);
+#else
 	Flags64 mask;
 	mask.assign(m_pKinematics->LL_GetBonesVisible());
 	bool no_visible = !mask.is(1ui64 << (u64)id);
+#endif
+
 	bool lvis_check = false;
 	if (no_visible)
 	{
@@ -865,7 +872,12 @@ void CPHShell::AddElementRecursive(CPhysicsElement* root_e, u16 id, Fmatrix glob
 			{
 				CPHFracture fracture;
 				fracture.m_bone_id = id;
+#if 1
+/* GT: Increase bones limitation to 128. */
+				R_ASSERT2(id < 128, "ower 128 bones in breacable are not supported");
+#else
 				R_ASSERT2(id<64, "ower 64 bones in breacable are not supported");
+#endif
 				fracture.m_start_geom_num = E->numberOfGeoms();
 				fracture.m_end_geom_num = u16(-1);
 				fracture.m_start_el_num = u16(elements.size());
@@ -1020,19 +1032,34 @@ void CPHShell::AddElementRecursive(CPhysicsElement* root_e, u16 id, Fmatrix glob
 #endif
 }
 
+#if 1 /* GT: Increase bones limitation to 128. */
+void CPHShell::ResetCallbacks(u16 id, VisMask &mask)
+{
+	ResetCallbacksRecursive(id, u16(-1), mask);
+}
+#else
 void CPHShell::ResetCallbacks(u16 id, Flags64& mask)
 {
 	ResetCallbacksRecursive(id, u16(-1), mask);
 }
+#endif
 
+#if 1 /* GT: Increase bones limitation to 128. */
+void CPHShell::ResetCallbacksRecursive(u16 id, u16 element, VisMask &mask)
+#else
 void CPHShell::ResetCallbacksRecursive(u16 id, u16 element, Flags64& mask)
+#endif
 {
 	//if(elements.size()==element)  return;
 	CBoneInstance& B = m_pKinematics->LL_GetBoneInstance(u16(id));
 	const IBoneData& bone_data = m_pKinematics->GetBoneData(u16(id));
 	const SJointIKData& joint_data = bone_data.get_IK_data();
 
+#if 1 /* GT: Increase bones limitation to 128. */
+	if(mask.is(id))
+#else
 	if (mask.is(1ui64 << (u64)id))
+#endif
 	{
 		if ((no_physics_shape(bone_data.get_shape()) || joint_data.type == jtRigid) && element != u16(-1))
 		{
@@ -1152,9 +1179,15 @@ void CPHShell::SetCallbacksRecursive(u16 id, u16 element)
 	CBoneInstance& B = m_pKinematics->LL_GetBoneInstance(u16(id));
 	const IBoneData& bone_data = m_pKinematics->GetBoneData(u16(id));
 	const SJointIKData& joint_data = bone_data.get_IK_data();
+
+#if 1 /* GT: Increase bones limitation to 128. */
+	VisMask mask = m_pKinematics->LL_GetBonesVisible();
+	if (mask.is(id))
+#else
 	Flags64 mask;
 	mask.assign(m_pKinematics->LL_GetBonesVisible());
 	if (mask.is(1ui64 << (u64)id))
+#endif
 	{
 		if ((no_physics_shape(bone_data.get_shape()) || joint_data.type == jtRigid) && element != u16(-1))
 		{
@@ -1507,9 +1540,14 @@ void CPHShell::applyGravityAccel(const Fvector& accel)
 
 void CPHShell::PlaceBindToElForms()
 {
+#if 1 /* GT: Increase bones limitation to 128. */
+	VisMask mask = m_pKinematics->LL_GetBonesVisible();
+	PlaceBindToElFormsRecursive(Fidentity, m_pKinematics->LL_GetBoneRoot(), 0, mask);
+#else
 	Flags64 mask;
 	mask.assign(m_pKinematics->LL_GetBonesVisible());
 	PlaceBindToElFormsRecursive(Fidentity, m_pKinematics->LL_GetBoneRoot(), 0, mask);
+#endif
 }
 
 void CPHShell::setTorque(const Fvector& torque)
@@ -1530,12 +1568,20 @@ void CPHShell::setForce(const Fvector& force)
 		(*i)->setForce(force);
 }
 
+#if 1 /* GT: Increase bones limitation to 128. */
+void CPHShell::PlaceBindToElFormsRecursive(Fmatrix parent, u16 id, u16 element, VisMask &mask)
+#else
 void CPHShell::PlaceBindToElFormsRecursive(Fmatrix parent, u16 id, u16 element, Flags64& mask)
+#endif
 {
 	CBoneData& bone_data = m_pKinematics->LL_GetData(u16(id));
 	SJointIKData& joint_data = bone_data.IK_data;
 
+#if 1 /* GT: Increase bones limitation to 128. */
+	if (mask.is(id))
+#else
 	if (mask.is(1ui64 << (u64)id))
+#endif
 	{
 		if (no_physics_shape(bone_data.shape) || joint_data.type == jtRigid && element != u16(-1))
 		{

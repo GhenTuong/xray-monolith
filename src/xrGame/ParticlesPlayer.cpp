@@ -58,6 +58,15 @@ void CParticlesPlayer::SBoneInfo::StopParticles(u16 sender_id, bool bDestroy)
 
 //-------------------------------------------------------------------------------------
 
+#if 1 /* GT: Increase bones limitation to 128. */
+CParticlesPlayer::CParticlesPlayer() : m_bActiveBones(false)
+{
+	bone_mask.set(0, true);
+	m_Bones.push_back(SBoneInfo(0, Fvector().set(0, 0, 0)));
+	SetParentVel(zero_vel);
+	m_self_object = nullptr;
+}
+#else
 CParticlesPlayer::CParticlesPlayer()
 {
 	bone_mask = u64(1) << u64(0);
@@ -69,6 +78,7 @@ CParticlesPlayer::CParticlesPlayer()
 	SetParentVel(zero_vel);
 	m_self_object = 0;
 }
+#endif
 
 CParticlesPlayer::~CParticlesPlayer()
 {
@@ -87,7 +97,11 @@ void CParticlesPlayer::LoadParticles(IKinematics* K)
 	CInifile* ini = K->LL_UserData();
 	if (ini && ini->section_exist("particle_bones"))
 	{
+#if 1 /* GT: Increase bones limitation to 128. */
+		bone_mask.zero();
+#else
 		bone_mask = 0;
+#endif
 		CInifile::Sect& data = ini->r_section("particle_bones");
 		for (CInifile::SectCIt I = data.Data.begin(); I != data.Data.end(); I++)
 		{
@@ -99,13 +113,21 @@ void CParticlesPlayer::LoadParticles(IKinematics* K)
 				Fvector offs;
 				sscanf(*item.second, "%f,%f,%f", &offs.x, &offs.y, &offs.z);
 				m_Bones.push_back(SBoneInfo(index, offs));
+#if 1 /* GT: Increase bones limitation to 128. */
+				bone_mask.set(index, true);
+#else
 				bone_mask |= u64(1) << u64(index);
+#endif
 			}
 		}
 	}
 	if (m_Bones.empty())
 	{
+#if 1 /* GT: Increase bones limitation to 128. */
+		bone_mask.set(K->LL_GetBoneRoot(), true);
+#else
 		bone_mask = u64(1) << u64(0);
+#endif
 		m_Bones.push_back(SBoneInfo(K->LL_GetBoneRoot(), Fvector().set(0, 0, 0)));
 	}
 }
@@ -133,7 +155,11 @@ void CParticlesPlayer::net_DestroyParticles()
 CParticlesPlayer::SBoneInfo* CParticlesPlayer::get_nearest_bone_info(IKinematics* K, u16 bone_index)
 {
 	u16 play_bone = bone_index;
+#if 1 /* GT: Increase bones limitation to 128. */
+	while ((BI_NONE != play_bone) && !bone_mask.is(play_bone))
+#else
 	while ((BI_NONE != play_bone) && !(bone_mask & (u64(1) << u64(play_bone))))
+#endif
 	{
 		play_bone = K->LL_GetData(play_bone).GetParentID();
 	}
@@ -336,7 +362,11 @@ u16 CParticlesPlayer::GetNearestBone(IKinematics* K, u16 bone_id)
 {
 	u16 play_bone = bone_id;
 
+#if 1 /* GT: Increase bones limitation to 128. */
+	while ((BI_NONE != play_bone) && !bone_mask.is(play_bone))
+#else
 	while ((BI_NONE != play_bone) && !(bone_mask & (u64(1) << u64(play_bone))))
+#endif
 	{
 		play_bone = K->LL_GetData(play_bone).GetParentID();
 	}

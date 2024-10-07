@@ -349,7 +349,12 @@ shell_root CPHShellSplitterHolder::ElementSingleSplit(const element_fracture& sp
 	new_shell_last->set_Kinematics(m_pShell->PKinematics());
 	new_shell_last_desc->AfterSetActive();
 	new_shell_last->set_Kinematics(NULL);
+#if 1
+/* GT: Increase bones limitation to 128. */
+	VERIFY2(split_elem.second.m_bone_id < 128, "strange root");
+#else
 	VERIFY2(split_elem.second.m_bone_id<64, "strange root");
+#endif
 	VERIFY(_valid(new_shell_last->mXFORM));
 	VERIFY(dBodyStateValide(source_element->get_bodyConst()));
 	VERIFY(dBodyStateValide(split_elem.first->get_body()));

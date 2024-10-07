@@ -3,6 +3,11 @@
 
 #include "../xrcdb/xr_collide_defs.h"
 
+#if 1
+/* GT: Increase bones limitation to 128. */
+#include "VisMask.h"
+#endif
+
 // refs
 class ENGINE_API CObject;
 class ENGINE_API CInifile;
@@ -151,7 +156,13 @@ public:
 
 	DEFINE_VECTOR(SElement, ElementVec, ElementVecIt);
 private:
+
+#if 1 /* GT: Increase bones limitation to 128. */
+	VisMask vis_mask;
+#else
 	u64 vis_mask;
+#endif
+
 	ElementVec elements;
 
 	u32 dwFrame; // The model itself

@@ -223,7 +223,11 @@ void SPHNetState::net_Load(IReader& P, const Fvector& min, const Fvector& max)
 
 SPHBonesData::SPHBonesData()
 {
+#if 1 /* GT: Increase bones limitation to 128. */
+	bones_mask.set_all();
+#else
 	bones_mask = u64(-1);
+#endif
 	root_bone = 0;
 
 	Fvector _mn, _mx;
@@ -235,12 +239,25 @@ SPHBonesData::SPHBonesData()
 
 void SPHBonesData::net_Save(NET_Packet& P)
 {
+#if 1 /* GT: Increase bones limitation to 128. */
+	P.w_u64(bones_mask._visimask.flags);
+#else
 	P.w_u64(bones_mask);
+#endif
 	P.w_u16(root_bone);
 
 	P.w_vec3(get_min());
 	P.w_vec3(get_max());
 	P.w_u16((u16)bones.size()); //bones number;
+
+#if 1 /* GT: Increase bones limitation to 128. */
+	if (bones.size() > 64)
+	{
+		Msg("!![SPHBonesData::net_Save] bones_size is [%u]!", bones.size());
+		P.w_u64(bones_mask._visimask_ex.flags);
+	}
+#endif
+
 	PHNETSTATE_I i = bones.begin(), e = bones.end();
 	for (; e != i; i++)
 	{
@@ -256,7 +273,14 @@ void SPHBonesData::net_Load(NET_Packet& P)
 {
 	bones.clear();
 
+#if 1 /* GT: Increase bones limitation to 128. */
+	// VisMask init
+	u64 _low = P.r_u64(); // Left (0...64)
+	u64 _high = 0; // Right(64..128)
+#else
 	bones_mask = P.r_u64();
+#endif
+
 	root_bone = P.r_u16();
 	Fvector _mn, _mx;
 	P.r_vec3(_mn);
@@ -264,6 +288,16 @@ void SPHBonesData::net_Load(NET_Packet& P)
 	set_min_max(_mn, _mx);
 
 	u16 bones_number = P.r_u16(); //bones number /**/
+
+#if 1 /* GT: Increase bones limitation to 128. */
+	if (bones_number > 64)
+	{
+		Msg("!![SPHBonesData::net_Load] bones_number is [%u]!", bones_number);
+		_high = P.r_u64();
+	}
+	bones_mask.set(_low, _high);
+#endif
+
 	for (int i = 0; i < bones_number; i++)
 	{
 		SPHNetState S;

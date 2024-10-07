@@ -260,7 +260,11 @@ public:
 	virtual void preBuild_FromKinematics(IKinematics* K, BONE_P_MAP* p_geting_map);
 	virtual void _BCL ActivatingBonePoses(IKinematics& K);
 	virtual void ZeroCallbacks();
+#if 1 /* GT: Increase bones limitation to 128. */
+	virtual void ResetCallbacks(u16 id, VisMask &mask);
+#else
 	virtual void ResetCallbacks(u16 id, Flags64& mask);
+#endif
 	void PlaceBindToElForms();
 	virtual void SetCallbacks();
 	virtual void EnabledCallbacks(BOOL val);
@@ -311,12 +315,20 @@ private:
 	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	void AddElementRecursive(CPhysicsElement* root_e, u16 id, Fmatrix global_parent, u16 element_number,
 	                         bool* vis_check);
+#if 1 /* GT: Increase bones limitation to 128. */
+	void PlaceBindToElFormsRecursive(Fmatrix parent, u16 id, u16 element, VisMask &mask);
+#else
 	void PlaceBindToElFormsRecursive(Fmatrix parent, u16 id, u16 element, Flags64& mask);
+#endif
 	void BonesBindCalculate(u16 id_from = 0);
 	void BonesBindCalculateRecursive(Fmatrix parent, u16 id);
 	void ZeroCallbacksRecursive(u16 id);
 	void SetCallbacksRecursive(u16 id, u16 element);
+#if 1 /* GT: Increase bones limitation to 128. */
+	void ResetCallbacksRecursive(u16 id, u16 element, VisMask &mask);
+#else
 	void ResetCallbacksRecursive(u16 id, u16 element, Flags64& mask);
+#endif
 	void SetJointRootGeom(CPhysicsElement* root_e, CPhysicsJoint* J);
 	void ReanableObject();
 	void ExplosionHit(const Fvector& pos, const Fvector& dir, float val, const u16 id);

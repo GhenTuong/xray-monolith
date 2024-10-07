@@ -49,7 +49,11 @@ void CPHSkeleton::RespawnInit()
 	if (K)
 	{
 		K->LL_SetBoneRoot(0);
+#if 1 /* GT: Increase bones limitation to 128. */
+		K->LL_SetBonesVisibleAll();
+#else
 		K->LL_SetBonesVisible(0xffffffffffffffffL);
+#endif
 		K->CalculateBones_Invalidate();
 		K->CalculateBones(TRUE);
 	}
@@ -175,9 +179,19 @@ void CPHSkeleton::SaveNetState(NET_Packet& P)
 	if (pPhysicsShell && pPhysicsShell->isActive()) m_flags.set(CSE_PHSkeleton::flActive, pPhysicsShell->isEnabled());
 
 	P.w_u8(m_flags.get());
+
+#if 1 /* GT: Increase bones limitation to 128. */
+	VisMask _vm;
+#endif
+
 	if (K)
 	{
+#if 1 /* GT: Increase bones limitation to 128. */
+		_vm = K->LL_GetBonesVisible();
+		P.w_u64(_vm._visimask.flags);
+#else
 		P.w_u64(K->LL_GetBonesVisible());
+#endif
 		P.w_u16(K->LL_GetBoneRoot());
 	}
 	else
@@ -215,6 +229,14 @@ void CPHSkeleton::SaveNetState(NET_Packet& P)
 
 	P.w_u16(bones_number);
 
+#if 1 /* GT: Increase bones limitation to 128. */
+	if (bones_number > 64)
+	{
+		Msg("!![CPhysicsShellHolder::PHSaveState] bones_number is [%u]!", bones_number);
+		P.w_u64(K ? _vm._visimask_ex.flags : u64(-1));
+	}
+#endif
+
 	for (u16 i = 0; i < bones_number; i++)
 	{
 		SPHNetState state;
@@ -228,13 +250,34 @@ void CPHSkeleton::LoadNetState(NET_Packet& P)
 	CPhysicsShellHolder* obj = PPhysicsShellHolder();
 	IKinematics* K = smart_cast<IKinematics*>(obj->Visual());
 	P.r_u8(m_flags.flags);
+
+#if 1 /* GT: Increase bones limitation to 128. */
+	u64 _low = 0;
+	u64 _high = 0;
+#endif
+
 	if (K)
 	{
+#if 1 /* GT: Increase bones limitation to 128. */
+		_low = P.r_u64();
+#else
 		K->LL_SetBonesVisible(P.r_u64());
+#endif
 		K->LL_SetBoneRoot(P.r_u16());
 	}
 
 	u16 bones_number = P.r_u16();
+
+#if 1 /* GT: Increase bones limitation to 128. */
+	if (bones_number > 64)
+	{
+		Msg("!![CPhysicsShellHolder::PHLoadState] bones_number is [%u]!", bones_number);
+		_high = P.r_u64();
+	}
+	VisMask _vm(_low, _high);
+	K->LL_SetBonesVisible(_vm);
+#endif
+
 	for (u16 i = 0; i < bones_number; i++)
 	{
 		SPHNetState state;
@@ -329,23 +372,46 @@ void CPHSkeleton::UnsplitSingle(CPHSkeleton* SO)
 	IKinematics* newKinematics = smart_cast<IKinematics*>(O->Visual());
 	IKinematics* pKinematics = smart_cast<IKinematics*>(obj->Visual());
 
+#if 1 /* GT: Increase bones limitation to 128. */
+	VisMask mask0, mask1;
+#else
 	Flags64 mask0, mask1;
+#endif
+
 	u16 split_bone = m_unsplited_shels.front().second;
+#if 1 /* GT: Increase bones limitation to 128. */
+	mask1 = pKinematics->LL_GetBonesVisible();//source bones mask
+#else
 	mask1.assign(pKinematics->LL_GetBonesVisible()); //source bones mask
+#endif
 	pKinematics->LL_SetBoneVisible(split_bone,FALSE,TRUE);
 
 	pKinematics->CalculateBones_Invalidate();
 	pKinematics->CalculateBones(TRUE);
 
+#if 1 /* GT: Increase bones limitation to 128. */
+	mask0 = pKinematics->LL_GetBonesVisible();//first part mask
+#else
 	mask0.assign(pKinematics->LL_GetBonesVisible()); //first part mask
+#endif
 	VERIFY2(mask0.flags, "mask0 -Zero");
 	mask0.invert();
+
+#if 1 /* GT: Increase bones limitation to 128. */
+	mask1.and(mask0);//second part mask
+#else
 	mask1.and(mask0.flags); //second part mask
+#endif
 
 
 	newKinematics->LL_SetBoneRoot(split_bone);
+#if 1 /* GT: Increase bones limitation to 128. */
+	VERIFY2(mask1._visimask.flags, "mask1 -Zero");
+	newKinematics->LL_SetBonesVisible(mask1);
+#else
 	VERIFY2(mask1.flags, "mask1 -Zero");
 	newKinematics->LL_SetBonesVisible(mask1.flags);
+#endif
 
 	newKinematics->CalculateBones_Invalidate();
 	newKinematics->CalculateBones(TRUE);
@@ -394,9 +460,22 @@ void CPHSkeleton::RecursiveBonesCheck(u16 id)
 	IKinematics* K = smart_cast<IKinematics*>(obj->Visual());
 	CBoneData& BD = K->LL_GetData(u16(id));
 	//////////////////////////////////////////
+
+#if 1 /* GT: Increase bones limitation to 128. */
+	VisMask mask = K->LL_GetBonesVisible();
+#else
 	Flags64 mask;
 	mask.assign(K->LL_GetBonesVisible());
+#endif
+
 	///////////////////////////////////////////
+#if 1 /* GT: Increase bones limitation to 128. */
+	if (mask.is(id) && !(BD.shape.flags.is(SBoneShape::sfRemoveAfterBreak)))
+	{
+		removable = false;
+		return;
+	}
+#else
 	if (
 		mask.is(1ui64 << (u64)id) &&
 		!(BD.shape.flags.is(SBoneShape::sfRemoveAfterBreak))
@@ -405,6 +484,7 @@ void CPHSkeleton::RecursiveBonesCheck(u16 id)
 		removable = false;
 		return;
 	}
+#endif
 	///////////////////////////////////////////////
 	for (vecBonesIt it = BD.children.begin(); BD.children.end() != it; ++it)
 	{

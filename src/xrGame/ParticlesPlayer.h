@@ -8,6 +8,9 @@
 #include "ParticlesObject.h"
 #include "../xrEngine/bone.h"
 
+#if 1 /* GT: Increase bones limitation to 128. */
+#include "../xrEngine/VisMask.h"
+#endif
 
 DEFINE_VECTOR(CParticlesObject*, PARTICLES_PTR_VECTOR, PARTICLES_PTR_VECTOR_IT);
 
@@ -46,7 +49,11 @@ public:
 
 private:
 	// список костей
+#if 1 /* GT: Increase bones limitation to 128. */
+	VisMask bone_mask; // используемые кости
+#else
 	u64 bone_mask; // используемые кости
+#endif
 	BoneInfoVec m_Bones;
 	CObject* m_self_object;
 

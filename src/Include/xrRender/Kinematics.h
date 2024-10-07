@@ -4,6 +4,11 @@
 
 #include "RenderVisual.h"
 
+#if 1
+/* GT: Increase bones limitation to 128. */
+#include "../../xrEngine/VisMask.h"
+#endif
+
 typedef void (* UpdateCallback)(IKinematics* P);
 
 class CBoneData;
@@ -67,8 +72,15 @@ public:
 
 	virtual BOOL _BCL LL_GetBoneVisible(u16 bone_id) = 0;
 	virtual void LL_SetBoneVisible(u16 bone_id, BOOL val, BOOL bRecursive) = 0;
+#if 1
+/* GT: Increase bones limitation to 128. */
+	virtual VisMask _BCL LL_GetBonesVisible() = 0;
+	virtual void LL_SetBonesVisible(VisMask mask) = 0;
+	virtual void LL_SetBonesVisibleAll() = 0;
+#else
 	virtual u64 _BCL LL_GetBonesVisible() = 0;
 	virtual void LL_SetBonesVisible(u64 mask) = 0;
+#endif
 
 	//--DSR-- SilencerOverheat_start
 	virtual IRenderVisual* GetVisualByBone(u16 bone_id) = 0;

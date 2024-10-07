@@ -38,7 +38,12 @@ void CKinematics::CalculateBones(BOOL bForceExact)
 	check_kinematics				(this, dbg_name.c_str() );
 	RDEVICE.Statistic->Animation.End	();
 #endif
+
+#if 1 /* GT: Increase bones limitation to 128. */
+	VERIFY(LL_GetBonesVisible()._visimask.flags != 0);
+#else
 	VERIFY(LL_GetBonesVisible()!=0);
+#endif
 	// Calculate BOXes/Spheres if needed
 	UCalc_Visibox++;
 	if (UCalc_Visibox >= psSkeletonUpdate)

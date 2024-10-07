@@ -422,9 +422,19 @@ void CPhysicsShellHolder::PHSaveState(NET_Packet& P)
 	//if(pPhysicsShell&&pPhysicsShell->isActive())			lflags.set(CSE_PHSkeleton::flActive,pPhysicsShell->isEnabled());
 
 	//	P.w_u8 (lflags.get());
+
+#if 1 /* GT: Increase bones limitation to 128. */
+	VisMask _vm;
+#endif
+
 	if (K)
 	{
+#if 1 /* GT: Increase bones limitation to 128. */
+		_vm = K->LL_GetBonesVisible();
+		P.w_u64(_vm._visimask.flags);
+#else
 		P.w_u64(K->LL_GetBonesVisible());
+#endif
 		P.w_u16(K->LL_GetBoneRoot());
 	}
 	else
@@ -440,6 +450,14 @@ void CPhysicsShellHolder::PHSaveState(NET_Packet& P)
 	/////////////////////////////////////
 
 	u16 bones_number = PHGetSyncItemsNumber();
+
+#if 1 /* GT: Increase bones limitation to 128. */
+	if (bones_number > 64)
+	{
+		Msg("!![CPhysicsShellHolder::PHSaveState] bones_number is [%u]!", bones_number);
+		P.w_u64(K ? _vm._visimask_ex.flags : u64(-1));
+	}
+#endif
 	for (u16 i = 0; i < bones_number; i++)
 	{
 		SPHNetState state;
@@ -477,9 +495,19 @@ CPhysicsShellHolder::PHLoadState(IReader& P)
 	//	Flags8 lflags;
 	IKinematics* K = smart_cast<IKinematics*>(Visual());
 	//	P.r_u8 (lflags.flags);
+
+#if 1 /* GT: Increase bones limitation to 128. */
+	u64 _low = 0;
+	u64 _high = 0;
+#endif
+
 	if (K)
 	{
+#if 1 /* GT: Increase bones limitation to 128. */
+		_low = P.r_u64();
+#else
 		K->LL_SetBonesVisible(P.r_u64());
+#endif
 		K->LL_SetBoneRoot(P.r_u16());
 	}
 
@@ -489,6 +517,17 @@ CPhysicsShellHolder::PHLoadState(IReader& P)
 	VERIFY(!min.similar(max));
 
 	u16 bones_number = P.r_u16();
+
+#if 1 /* GT: Increase bones limitation to 128. */
+	if (bones_number > 64)
+	{
+		Msg("!![CPhysicsShellHolder::PHLoadState] bones_number is [%u]!", bones_number);
+		_high = P.r_u64();
+	}
+	VisMask _vm(_low, _high);
+	K->LL_SetBonesVisible(_vm);
+#endif
+
 	for (u16 i = 0; i < bones_number; i++)
 	{
 		SPHNetState state;

@@ -127,8 +127,7 @@ CKinematics::~CKinematics()
 
 void CKinematics::IBoneInstances_Create()
 {
-#if 1
-/* GT: Increase bones limitation to 128. */
+#if 1 /* GT: Increase bones limitation to 128. */
 // VERIFY2(bones->size() < 128, "More than 64 bones is a crazy thing!");
 #else
 	// VERIFY2				(bones->size() < 64, "More than 64 bones is a crazy thing!");
@@ -226,9 +225,8 @@ void CKinematics::Load(const char* N, IReader* data, u32 dwFlags)
 	hidden_bones.zero();
 	visimask.zero();
 	int dwCount = data->r_u32();
-#if 1
-/* GT: Increase bones limitation to 128. */
-	VERIFY3(dwCount <= 128, "More than 64 bones is a crazy thing!", N);
+#if 1 /* GT: Increase bones limitation to 128. */
+	VERIFY3(dwCount <= 128, "More than 128 bones is a crazy thing!", N);
 #else
 	// Msg				("!!! %d bones",dwCount);
 	// if (dwCount >= 64)	Msg			("!!! More than 64 bones is a crazy thing! (%d), %s",dwCount,N);
@@ -255,8 +253,13 @@ void CKinematics::Load(const char* N, IReader* data, u32 dwFlags)
 		L_parents.push_back(buf);
 
 		data->r(&pBone->obb, sizeof(Fobb));
+#if 1 /* GT: Increase bones limitation to 128. */
+		visimask.set(ID, TRUE);
+		hidden_bones.set(ID, TRUE);
+#else
 		visimask.set(u64(1) << ID,TRUE);
 		hidden_bones.set(u64(1) << ID, TRUE);
+#endif
 	}
 	std::sort(bone_map_N->begin(), bone_map_N->end(), pred_sort_N);
 	std::sort(bone_map_P->begin(), bone_map_P->end(), pred_sort_P);
@@ -489,7 +492,16 @@ void CKinematics::Depart()
     	if (count > 64)
         	Msg("ahtung !!! %d", count);
 #endif // #ifdef DEBUG
+
+#if 1 /* GT: Increase bones limitation to 128. */
+		for (u32 b = 0; b < count; b++)
+		{
+			visimask.set(b, TRUE);
+			hidden_bones.set(b, TRUE);
+		}
+#else
 		for (u32 b = 0; b<count; b++) { visimask.set((u64(1) << b), TRUE); hidden_bones.set((u64(1) << b), TRUE); }
+#endif
 	}
 	// visibility
 	children.insert(children.end(), children_invisible.begin(), children_invisible.end());
@@ -519,9 +531,19 @@ void CKinematics::LL_SetBoneVisible(u16 bone_id, BOOL val, BOOL bRecursive)
 	VERIFY(bone_id<LL_BoneCount());
 	if(bone_id >= LL_BoneCount())
 		return;
+
+#if 1 /* GT: Increase bones limitation to 128. */
+	visimask.set(bone_id, val);
+#else
 	u64 mask = u64(1) << bone_id;
 	visimask.set(mask, val);
+#endif
+
+#if 1 /* GT: Increase bones limitation to 128. */
+	if (!visimask.is(bone_id))
+#else
 	if (!visimask.is(mask))
+#endif
 	{
 		bone_instances[bone_id].mTransform.scale(0.f, 0.f, 0.f);
 		if (LL_GetData(bone_id).GetParentID() < LL_BoneCount() && LL_GetData(bone_id).GetParentID() != BI_NONE)
@@ -542,16 +564,31 @@ void CKinematics::LL_SetBoneVisible(u16 bone_id, BOOL val, BOOL bRecursive)
 	Visibility_Invalidate();
 }
 
+#if 1 /* GT: Increase bones limitation to 128. */
+void CKinematics::LL_SetBonesVisible(VisMask mask)
+#else
 void CKinematics::LL_SetBonesVisible(u64 mask)
+#endif
 {
+#if 1 /* GT: Increase bones limitation to 128. */
+	visimask.zero();
+#else
 	visimask.assign(0);
+#endif
 	for (u32 b = 0; b < bones->size(); b++)
 	{
+#if 1 /* GT: Increase bones limitation to 128. */
+		if (mask.is(b))
+		{
+			visimask.set(b, true);
+		}
+#else
 		u64 bm = u64(1) << b;
 		if (mask & bm)
 		{
 			visimask.set(bm,TRUE);
 		}
+#endif
 		else
 		{
 			Fmatrix& A = bone_instances[b].mTransform;
