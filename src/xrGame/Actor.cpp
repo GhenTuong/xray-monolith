@@ -1573,13 +1573,14 @@ void CActor::detach_Vehicle(bool bForce)
 		character_physics_support()->movement()->SetPosition(m_holder->ExitPosition());
 		character_physics_support()->movement()->SetVelocity(m_holder->ExitVelocity());
 
+#if 0
 		r_model_yaw = -m_holder->Camera()->yaw;
 		r_torso.yaw = r_model_yaw;
 		r_model_yaw_dest = r_model_yaw;
 
-#if 0
+#else
 		/* You would want to keep your eyes on the current direction. */
-		cam_Active()->Direction().set(m_holder->Camera()->Direction());
+		cam_Active()->Direction().set(Fvector().setHP(GO->Direction().getH(), 0.0F));
 #endif
 
 		SetCallbacks();

@@ -32,6 +32,7 @@ void CCar::cam_Update(float dt, float fov)
 	Fvector D;
 	D.set(0, 0, 0);
 	CCameraBase *cam = Camera();
+	float zoom_factor = 1.0F;
 
 	SSeat *seat = (CrewManagerAvailable()) ? m_crew_manager->GetSeatByCrew(OwnerActor()) : NULL;
 	switch (cam->tag)
@@ -41,7 +42,7 @@ void CCar::cam_Update(float dt, float fov)
 		{
 			u16 bone_id = (IsCameraZoom() && (seat->camera_bone_aim != BI_NONE)) ? seat->camera_bone_aim : seat->camera_bone_def;
 			XFORM().transform_tiny(P, Visual()->dcast_PKinematics()->LL_GetTransform(bone_id).c);
-			Msg("%s:%d %s", __FUNCTION__, __LINE__, Visual()->dcast_PKinematics()->LL_BoneName_dbg(bone_id));
+			zoom_factor = (IsCameraZoom()) ? seat->zoom_factor_aim : seat->zoom_factor_def;
 		}
 		else
 		{
@@ -68,7 +69,7 @@ void CCar::cam_Update(float dt, float fov)
 		break;
 	}
 
-	cam->f_fov = fov;
+	cam->f_fov = fov / zoom_factor;
 	cam->Update(P, D);
 	Level().Cameras().UpdateFromCamera(cam);
 }

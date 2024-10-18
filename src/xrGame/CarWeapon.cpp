@@ -46,7 +46,6 @@ CCarWeapon::CCarWeapon(CPhysicsShellHolder* obj)
 	CBoneData& bdY = K->LL_GetData(m_rotate_y_bone); //VERIFY(bdY.IK_data.type==jtJoint);
 	m_lim_y_rot.set(bdY.IK_data.limits[1].limit.x, bdY.IK_data.limits[1].limit.y);
 
-
 	xr_vector<Fmatrix> matrices;
 	K->LL_GetBindTransform(matrices);
 	m_i_bind_x_xform.invert(matrices[m_rotate_x_bone]);
@@ -64,13 +63,35 @@ CCarWeapon::CCarWeapon(CPhysicsShellHolder* obj)
 
 	inheritedShooting::Light_Create();
 	Load(pUserData->r_string("mounted_weapon_definition", "wpn_section"));
+
+#ifdef CHOLDERCUSTOM_CHANGE
+	/* Remove */
+#else
 	SetBoneCallbacks();
+#endif
+
 	m_object->processing_activate();
 
 	m_weapon_h = matrices[m_rotate_y_bone].c.y;
 	m_fire_norm.set(0, 1, 0);
 	m_fire_dir.set(0, 0, 1);
 	m_fire_pos.set(0, 0, 0);
+
+#ifdef CHOLDERCUSTOM_CHANGE
+	m_holder = smart_cast<CHolderCustom *>(m_object);
+	R_ASSERT3(m_holder, "Parent is not a holder custom. ", m_object->cNameSect_str());
+
+	CInifile *ini = K->LL_UserData();
+	LPCSTR mwd = "mounted_weapon_definition";
+
+	m_drop_bone = ini->line_exist(mwd, "drop_bone") ? K->LL_BoneID(ini->r_string(mwd, "drop_bone")) : BI_NONE;
+	m_recoil_force = READ_IF_EXISTS(ini, r_float, mwd, "recoil_force", 0.0F);
+	m_min_gun_speed = _abs(deg2rad(m_min_gun_speed));
+	m_max_gun_speed = _abs(deg2rad(m_max_gun_speed));
+
+	m_desire_angle_vector.set(0.0F, 0.0F);
+	m_desire_angle_active = false;
+#endif
 }
 
 CCarWeapon::~CCarWeapon()
@@ -84,6 +105,11 @@ void CCarWeapon::Load(LPCSTR section)
 	inheritedShooting::Load(section);
 	HUD_SOUND_ITEM::LoadSound(section, "snd_shoot", m_sndShot, SOUND_TYPE_WEAPON_SHOOTING);
 	m_Ammo->Load(pSettings->r_string(section, "ammo_class"), 0);
+
+#ifdef CHOLDERCUSTOM_CHANGE
+	m_sounds.LoadSound(section, "snd_shoot", "sndShot", false, SOUND_TYPE_WEAPON_SHOOTING);
+	m_sounds.LoadSound(section, "snd_reload", "sndReload", true, SOUND_TYPE_WEAPON_RECHARGING);
+#endif
 }
 
 void CCarWeapon::UpdateCL()
@@ -170,6 +196,43 @@ void CCarWeapon::UpdateBarrelDir()
 	Fmatrix XFi;
 	XFi.invert(m_object->XFORM());
 	Fvector dep;
+
+#ifdef CHOLDERCUSTOM_CHANGE
+	/*
+		Take m_i_bind_y_xform as base for both bone x and bone_rotate_y assuming bone_rotate_y always has 0 pitch.
+		And reset dep before calculating.
+	*/
+	{
+		// x angle
+		if (m_desire_angle_active)
+		{
+			dep.setHP(m_desire_angle_vector.x, m_desire_angle_vector.y);
+		}
+		else
+		{
+			XFi.transform_dir(dep, m_destEnemyDir);
+		}
+		m_i_bind_y_xform.transform_dir(dep);
+		dep.normalize();
+		m_tgt_x_rot = angle_normalize_signed(m_bind_x_rot - dep.getP());
+		clamp(m_tgt_x_rot, -m_lim_x_rot.y, -m_lim_x_rot.x);
+	}
+	{
+		// y angle
+		if (m_desire_angle_active)
+		{
+			dep.setHP(m_desire_angle_vector.x, m_desire_angle_vector.y);
+		}
+		else
+		{
+			XFi.transform_dir(dep, m_destEnemyDir);
+		}
+		m_i_bind_y_xform.transform_dir(dep);
+		dep.normalize();
+		m_tgt_y_rot = angle_normalize_signed(m_bind_y_rot - dep.getH());
+		clamp(m_tgt_y_rot, -m_lim_y_rot.y, -m_lim_y_rot.x);
+	}
+#else
 	XFi.transform_dir(dep, m_destEnemyDir);
 	{
 		// x angle
@@ -185,6 +248,7 @@ void CCarWeapon::UpdateBarrelDir()
 		m_tgt_y_rot = angle_normalize_signed(m_bind_y_rot - dep.getH());
 		clamp(m_tgt_y_rot, -m_lim_y_rot.y, -m_lim_y_rot.x);
 	}
+#endif
 
 	m_cur_x_rot = angle_inertion_var(m_cur_x_rot, m_tgt_x_rot, m_min_gun_speed, m_max_gun_speed, PI, Device.fTimeDelta);
 	m_cur_y_rot = angle_inertion_var(m_cur_y_rot, m_tgt_y_rot, m_min_gun_speed, m_max_gun_speed, PI, Device.fTimeDelta);
@@ -232,8 +296,50 @@ void CCarWeapon::FireEnd()
 {
 	inheritedShooting::FireEnd();
 	StopFlameParticles();
+#ifdef CHOLDERCUSTOM_CHANGE
+	RemoveShotEffector();
+#endif
 }
 
+#ifdef CHOLDERCUSTOM_CHANGE
+void CCarWeapon::OnShot()
+{
+	CGameObject *gunner = m_holder->Gunner();
+	gunner = (gunner) ? gunner : m_object->cast_game_object();
+
+	FireBullet(m_fire_pos, m_fire_dir, fireDispersionBase, *m_Ammo, gunner->ID(), m_object->ID(), SendHitAllowed(m_object), ::Random.randI(0, 30));
+
+	StartShotParticles();
+
+	if (m_bLightShotEnabled)
+		Light_Start();
+
+	StartFlameParticles();
+	StartSmokeParticles(m_fire_pos, zero_vel);
+	m_sounds.PlaySound("sndShot", m_fire_pos, gunner, false);
+
+	if (m_object->PPhysicsShell())
+	{
+		if (m_drop_bone != BI_NONE)
+		{
+			Fvector drop_pos;
+			m_object->XFORM().transform_tiny(drop_pos, m_object->Visual()->dcast_PKinematics()->LL_GetTransform(m_drop_bone).c);
+			Fvector drop_vel;
+			m_object->PPhysicsShell()->get_LinearVel(drop_vel);
+			OnShellDrop(drop_pos, drop_vel);
+		}
+
+		CPhysicsElement *E = m_object->PPhysicsShell()->get_Element(m_rotate_x_bone);
+		if (E)
+		{
+			Fvector vec = Fvector().set(0.0F, 0.0F, -1.0F);
+			Fmatrix().mul_43(m_object->XFORM(), m_object->Visual()->dcast_PKinematics()->LL_GetTransform(m_rotate_x_bone)).transform_dir(vec);
+			vec.normalize_safe();
+			E->applyForce(vec, m_recoil_force / 0.02F);
+		}
+	}
+}
+#else
 void CCarWeapon::OnShot()
 {
 	CHolderCustom* holder = smart_cast<CHolderCustom*>(m_object);
@@ -250,6 +356,7 @@ void CCarWeapon::OnShot()
 
 	HUD_SOUND_ITEM::PlaySound(m_sndShot, m_fire_pos, m_object, false);
 }
+#endif
 
 void CCarWeapon::Action(u16 id, u32 flags)
 {
@@ -263,12 +370,26 @@ void CCarWeapon::Action(u16 id, u32 flags)
 		break;
 	case eWpnActivate:
 		{
+#ifdef CHOLDERCUSTOM_CHANGE
+			if (flags == 1 && m_bActive != true)
+			{
+				m_bActive = true;
+				SetBoneCallbacks();
+			}
+			if (flags != 1 && m_bActive == true)
+			{
+				m_bActive = false;
+				FireEnd();
+				ResetBoneCallbacks();
+			}
+#else
 			if (flags == 1) m_bActive = true;
 			else
 			{
 				m_bActive = false;
 				FireEnd();
 			}
+#endif
 		}
 		break;
 
@@ -292,7 +413,15 @@ void CCarWeapon::SetParam(int id, Fvector2 val)
 	{
 	case eWpnDesiredDir:
 		m_destEnemyDir.setHP(val.x, val.y);
+#ifdef CHOLDERCUSTOM_CHANGE
+		m_desire_angle_active = false;
+#endif
 		break;
+#ifdef CHOLDERCUSTOM_CHANGE
+	case eWpnDesiredAng:
+		m_desire_angle_vector.set(val);
+		m_desire_angle_active = true;
+#endif
 	}
 }
 
@@ -302,6 +431,9 @@ void CCarWeapon::SetParam(int id, Fvector val)
 	{
 	case eWpnDesiredPos:
 		m_destEnemyDir.sub(val, m_fire_pos).normalize_safe();
+#ifdef CHOLDERCUSTOM_CHANGE
+		m_desire_angle_active = false;
+#endif
 		break;
 	}
 }
@@ -320,3 +452,42 @@ const Fvector& CCarWeapon::ViewCameraNorm()
 {
 	return m_fire_norm;
 }
+
+#ifdef CHOLDERCUSTOM_CHANGE
+void CCarWeapon::AddShotEffector()
+{
+	CGameObject *gunner = m_holder->Gunner();
+	if (gunner && (gunner == Actor()))
+	{
+		CCameraShotEffector *S = smart_cast<CCameraShotEffector *>(Actor()->Cameras().GetCamEffector(eCEShot));
+		CameraRecoil cam_recoil;
+		cam_recoil.RelaxSpeed = deg2rad(10.0F);
+		cam_recoil.MaxAngleVert = 0.0F;
+		cam_recoil.MaxAngleHorz = deg2rad(20.0F);
+		cam_recoil.DispersionFrac = 0.7f;
+		cam_recoil.StepAngleHorz = ::Random.randF(-1.0f, 1.0f) * 0.01f;
+
+		if (S == NULL)
+			S = (CCameraShotEffector *)Actor()->Cameras().AddCamEffector(xr_new<CCameraShotEffector>(cam_recoil));
+		R_ASSERT(S);
+		S->Initialize(cam_recoil);
+		S->Shot2(0.01f);
+	}
+}
+
+void CCarWeapon::RemoveShotEffector()
+{
+	CGameObject *gunner = m_holder->Gunner();
+	if (gunner && (gunner == Actor()))
+	{
+		Actor()->Cameras().RemoveCamEffector(eCEShot);
+	}
+}
+
+Fvector CCarWeapon::GetBasePos()
+{
+	Fvector vec;
+	m_object->XFORM().transform_tiny(vec, m_object->Visual()->dcast_PKinematics()->LL_GetTransform(m_rotate_y_bone).c);
+	return vec;
+}
+#endif

@@ -1,6 +1,12 @@
 #pragma once
 #include "ShootingObject.h"
 #include "HudSound.h"
+#include "holder_custom.h"
+
+#ifdef CHOLDERCUSTOM_CHANGE
+#include "ActorEffector.h"
+#include "EffectorShot.h"
+#endif
 
 class CPhysicsShellHolder;
 
@@ -30,6 +36,9 @@ public:
 	{
 		eWpnDesiredDir =1,
 		eWpnDesiredPos,
+#ifdef CHOLDERCUSTOM_CHANGE
+		eWpnDesiredAng,
+#endif
 		eWpnActivate,
 		eWpnFire,
 		eWpnAutoFire,
@@ -68,4 +77,24 @@ private:
 	Fvector m_destEnemyDir;
 	bool m_allow_fire;
 	HUD_SOUND_ITEM m_sndShot;
+
+#ifdef CHOLDERCUSTOM_CHANGE
+private:
+	CHolderCustom *m_holder;
+
+	u16 m_drop_bone;
+	float m_recoil_force;
+
+	Fvector2 m_desire_angle_vector;
+	bool m_desire_angle_active;
+
+	HUD_SOUND_COLLECTION_LAYERED m_sounds;
+	void AddShotEffector();
+	void RemoveShotEffector();
+
+public:
+	Fvector GetBasePos();
+	Fvector GetFirePos() { return m_fire_pos; }
+	Fvector GetFireDir() { return m_fire_dir; }
+#endif
 };

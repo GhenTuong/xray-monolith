@@ -63,6 +63,7 @@ public:
 
 #ifdef CHOLDERCUSTOM_CHANGE
 	virtual LPCSTR Animation(CGameObject *owner) { return NULL; }
+	virtual CGameObject *Gunner() { return NULL; }
 #endif
 
 	virtual void Action(u16 id, u32 flags)

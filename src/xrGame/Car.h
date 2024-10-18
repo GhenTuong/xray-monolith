@@ -743,6 +743,7 @@ private:
 private:
 	LPCSTR m_on_before_hit_callback;
 	LPCSTR m_on_before_use_callback;
+	LPCSTR m_actor_control_callback;
 	LPCSTR m_on_before_start_engine_callback;
 	u32 m_engine_switch_state_delay;
 
@@ -751,6 +752,12 @@ private:
 	float m_max_power_def;
 	float m_fuel_tank_def;
 	float m_fuel_consumption_def;
+
+	bool IsBrp() { return brp; }
+	bool IsFwp() { return fwp; }
+	bool IsBkp() { return bkp; }
+	bool IsRsp() { return rsp; }
+	bool IsLsp() { return lsp; }
 
 public:
 	enum ECarEngine
@@ -770,6 +777,10 @@ public:
 	float GetfFuelConsumptionDef();
 
 	void StartEngineForce();
+
+	Fvector WeaponGetBasePos();
+	Fvector WeaponGetFirePos();
+	Fvector WeaponGetFireDir();
 
 /*----------------------------------------------------------------------------------------------------
 	Inventory
@@ -808,14 +819,15 @@ public:
 	bool CrewManagerAvailable();
 
 	static void CrewObstacleCallback(bool &do_colide, bool bo1, dContact &c, SGameMtl *material_1, SGameMtl *material_2);
-	LPCSTR GetSeatByCrew(CGameObject *obj);
-	CGameObject *GetCrewBySeat(LPCSTR sec);
+	LPCSTR GetSeatByCrew(CScriptGameObject *obj);
+	CScriptGameObject *GetCrewBySeat(LPCSTR sec);
+	CScriptGameObject *GetCrewByType(u16 type);
 	Fvector CrewExitPosition(CGameObject *obj);
 	void CrewAnimationUpdate(CGameObject *obj);
 
 	u16 GetCrewType(CGameObject *obj, LPCSTR sec);
-	bool CanActorDrive();
-	bool CanActorShoot();
+	bool CanActorDrive(int key);
+	bool CanActorShoot(int key);
 
 	bool attach_Actor_Crew(CGameObject *obj);
 	void detach_Actor_Crew();
@@ -826,6 +838,8 @@ public:
 	void OnDetachCrew(u16 type);
 
 	bool IsCameraZoom() { return m_zoom_status; }
+
+	CGameObject *Gunner();
 #endif
 
 public:

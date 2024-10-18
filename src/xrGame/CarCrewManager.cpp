@@ -253,6 +253,18 @@ CGameObject *CCarCrewManager::GetCrewBySeat(SSeat *seat)
 	return NULL;
 }
 
+CGameObject *CCarCrewManager::GetCrewByType(u16 type)
+{
+	for (auto &i : m_crew)
+	{
+		if (i.second->type == type)
+		{
+			return i.first;
+		}
+	}
+	return NULL;
+}
+
 bool CCarCrewManager::AttachCrew(CGameObject *obj, LPCSTR sec)
 {
 	/* Target seat must be unoccupied. */

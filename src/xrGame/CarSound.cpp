@@ -106,9 +106,16 @@ void CCar::SCarSound::UpdateStalling()
 void CCar::SCarSound::UpdateDrive()
 {
 	VERIFY(!physics_world()->Processing());
+
+#ifdef CCAR_CHANGE
+	float scale = (pcar->e_state_drive == idle) ? 1.0F : 1.25F;
+	snd_engine.set_frequency(scale);
+#else
 	float scale = 0.5f + 0.5f * pcar->m_current_rpm / pcar->m_torque_rpm;
 	clamp(scale, 0.5f, 1.25f);
 	snd_engine.set_frequency(scale);
+#endif
+
 	SetSoundPosition(snd_engine);
 }
 

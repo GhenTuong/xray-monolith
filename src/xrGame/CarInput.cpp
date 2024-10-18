@@ -171,53 +171,53 @@ void CCar::OnKeyboardPress(int cmd)
 		OnCameraChange(ectFree);
 		break;
 	case kACCEL:
-		if (CanActorDrive())
+		if (CanActorDrive(cmd))
 			TransmissionUp();
 		break;
 	case kCROUCH:
-		if (CanActorDrive())
+		if (CanActorDrive(cmd))
 			TransmissionDown();
 		break;
 	case kFWD:
-		if (CanActorDrive())
+		if (CanActorDrive(cmd))
 			PressForward();
 		break;
 	case kBACK:
-		if (CanActorDrive())
+		if (CanActorDrive(cmd))
 			PressBack();
 		break;
 	case kR_STRAFE:
-		if (CanActorDrive())
+		if (CanActorDrive(cmd))
 		{
 			PressRight();
 			OwnerActor()->steer_Vehicle(1);
 		}
 		break;
 	case kL_STRAFE:
-		if (CanActorDrive())
+		if (CanActorDrive(cmd))
 		{
 			PressLeft();
 			OwnerActor()->steer_Vehicle(-1);
 		}
 		break;
 	case kJUMP:
-		if (CanActorDrive())
+		if (CanActorDrive(cmd))
 			PressBreaks();
 		break;
 	case kDETECTOR:
-		if (CanActorDrive())
+		if (CanActorDrive(cmd))
 			SwitchEngine();
 		break;
 	case kWPN_FUNC:
 		break;
 	case kTORCH:
-		if (CanActorDrive())
+		if (CanActorDrive(cmd))
 			m_lights.SwitchHeadLights();
 		break;
 	case kUSE:
 		break;
 	case kWPN_FIRE:
-		if (CanActorShoot() && HasWeapon())
+		if (CanActorShoot(cmd) && HasWeapon())
 			m_car_weapon->Action(CCarWeapon::eWpnFire, 1);
 		break;
 	case kWPN_ZOOM:
@@ -280,33 +280,33 @@ void CCar::OnKeyboardRelease(int cmd)
 	case kACCEL:
 		break;
 	case kFWD:
-		if (CanActorDrive())
+		if (CanActorDrive(cmd))
 		ReleaseForward();
 		break;
 	case kBACK:
-		if (CanActorDrive())
+		if (CanActorDrive(cmd))
 		ReleaseBack();
 		break;
 	case kL_STRAFE:
-		if (CanActorDrive())
+		if (CanActorDrive(cmd))
 		{
 			ReleaseLeft();
 			OwnerActor()->steer_Vehicle(0);
 		}
 		break;
 	case kR_STRAFE:
-		if (CanActorDrive())
+		if (CanActorDrive(cmd))
 		{
 			ReleaseRight();
 			OwnerActor()->steer_Vehicle(0);
 		}
 		break;
 	case kJUMP:
-		if (CanActorDrive())
+		if (CanActorDrive(cmd))
 			ReleaseBreaks();
 		break;
 	case kWPN_FIRE:
-		if (CanActorShoot() && HasWeapon())
+		if (CanActorShoot(cmd) && HasWeapon())
 			m_car_weapon->Action(CCarWeapon::eWpnFire, 0);
 		break;
 	case kWPN_ZOOM:

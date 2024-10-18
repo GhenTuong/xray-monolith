@@ -362,7 +362,7 @@ void CWeaponStatMgun::UpdateBarrelDir()
 
 #ifdef CWEAPONSTATMGUN_CHANGE
 	/*
-		Take m_i_bind_y_xform as base for both bone x and bone y. Assume bone y will always have 0 pitch.
+		Take m_i_bind_y_xform as base for both bone x and bone_rotate_y assuming bone_rotate_y always has 0 pitch.
 		And reset dep before calculating.
 	*/
 	{

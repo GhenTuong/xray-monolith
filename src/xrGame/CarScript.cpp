@@ -16,6 +16,9 @@ void CCar::script_register(lua_State* L)
 		[
 			value("eWpnDesiredDir", int(CCarWeapon::eWpnDesiredDir)),
 			value("eWpnDesiredPos", int(CCarWeapon::eWpnDesiredPos)),
+#ifdef CHOLDERCUSTOM_CHANGE
+			value("eWpnDesiredAng", int(CCarWeapon::eWpnDesiredAng)),
+#endif
 			value("eWpnActivate", int(CCarWeapon::eWpnActivate)),
 			value("eWpnFire", int(CCarWeapon::eWpnFire)),
 			value("eWpnAutoFire", int(CCarWeapon::eWpnAutoFire)),
@@ -61,6 +64,25 @@ void CCar::script_register(lua_State* L)
 			value("eCarEngineStartFail", int(CCar::eCarEngineStartFail)),
 			value("eCarEngineDontStart", int(CCar::eCarEngineDontStart))
 		]
+
+		.def("IsBrp", &CCar::IsBrp)
+		.def("IsFwp", &CCar::IsFwp)
+		.def("IsBkp", &CCar::IsBkp)
+		.def("IsRsp", &CCar::IsRsp)
+		.def("IsLsp", &CCar::IsLsp)
+
+		.def("PressBreaks", &CCar::PressBreaks)
+		.def("PressForward", &CCar::PressForward)
+		.def("PressBack", &CCar::PressBack)
+		.def("PressLeft", &CCar::PressLeft)
+		.def("PressRight", &CCar::PressRight)
+
+		.def("ReleaseBreaks", &CCar::ReleaseBreaks)
+		.def("ReleaseForward", &CCar::ReleaseForward)
+		.def("ReleaseBack", &CCar::ReleaseBack)
+		.def("ReleaseLeft", &CCar::ReleaseLeft)
+		.def("ReleaseRight", &CCar::ReleaseRight)
+
 		.def("SetfMaxPower", &CCar::SetfMaxPower)
 		.def("GetfMaxPower", &CCar::GetfMaxPower)
 		.def("GetfMaxPowerDef", &CCar::GetfMaxPowerDef)
@@ -69,7 +91,13 @@ void CCar::script_register(lua_State* L)
 		.def("GetfFuelConsumptionDef", &CCar::GetfFuelConsumptionDef)
 
 		.def("StartEngineForce", &CCar::StartEngineForce)
+		.def("WeaponGetBasePos", &CCar::WeaponGetBasePos)
+		.def("WeaponGetFirePos", &CCar::WeaponGetFirePos)
+		.def("WeaponGetFireDir", &CCar::WeaponGetFireDir)
 
+/*----------------------------------------------------------------------------------------------------
+	Inventory
+----------------------------------------------------------------------------------------------------*/
 		.def("HasInventory", &CCar::HasInventory)
 		.def("UseInventory", &CCar::UseInventory)
 		.def("SetMaxCarryWeight", &CCar::SetMaxCarryWeight)
@@ -87,6 +115,7 @@ void CCar::script_register(lua_State* L)
 		]
 		.def("GetSeatByCrew", &CCar::GetSeatByCrew)
 		.def("GetCrewBySeat", &CCar::GetCrewBySeat)
+		.def("GetCrewByType", &CCar::GetCrewByType)
 		.def("GetCrewType", &CCar::GetCrewType)
 		.def("CrewChangeSeat", &CCar::CrewChangeSeat)
 #endif

@@ -112,6 +112,7 @@ CCar::CCar()
 	m_on_before_hit_callback = NULL;
 	m_on_before_use_callback = NULL;
 	m_on_before_start_engine_callback = NULL;
+	m_actor_control_callback = NULL;
 	m_engine_switch_state_delay = 0;
 
 	m_max_power_def = 0.0f;
@@ -141,6 +142,7 @@ CCar::~CCar(void)
 
 	m_on_before_hit_callback = NULL;
 	m_on_before_use_callback = NULL;
+	m_actor_control_callback = NULL;
 	m_on_before_start_engine_callback = NULL;
 
 	m_inventory_bone.clear();
@@ -482,7 +484,11 @@ void CCar::UpdateEx(float fov)
 
 BOOL CCar::AlwaysTheCrow()
 {
+#ifdef CCAR_CHANGE
+	return TRUE;
+#else
 	return (m_car_weapon && m_car_weapon->IsActive());
+#endif
 }
 
 void CCar::UpdateCL()
@@ -656,7 +662,7 @@ void CCar::Hit(SHit* pHDS)
 		if (ai().script_engine().functor(m_on_before_hit_callback, lua_function))
 		{
 			CScriptHit tLuaHit(&HDS);
-			if (!lua_function(lua_game_object(), &tLuaHit, &HDS.boneID))
+			if (!lua_function(lua_game_object(), &tLuaHit, HDS.boneID))
 			{
 				return;
 			}
@@ -1032,6 +1038,10 @@ void CCar::ParseDefinitions()
 	if (pSettings->line_exist(cNameSect_str(), "on_before_use"))
 	{
 		m_on_before_use_callback = READ_IF_EXISTS(pSettings, r_string, cNameSect_str(), "on_before_use", "");
+	}
+	if (pSettings->line_exist(cNameSect_str(), "actor_control"))
+	{
+		m_actor_control_callback = READ_IF_EXISTS(pSettings, r_string, cNameSect_str(), "actor_control", "");
 	}
 	if (pSettings->line_exist(cNameSect_str(), "on_before_start_engine"))
 	{
@@ -2568,6 +2578,21 @@ void CCar::StartEngineForce()
 	b_starting = true;
 }
 
+Fvector CCar::WeaponGetBasePos()
+{
+	return (m_car_weapon) ? m_car_weapon->GetBasePos() : Fvector().set(0.0f, 0.0f, 0.0f);
+}
+
+Fvector CCar::WeaponGetFirePos()
+{
+	return (m_car_weapon) ? m_car_weapon->GetFirePos() : Fvector().set(0.0f, 0.0f, 0.0f);
+}
+
+Fvector CCar::WeaponGetFireDir()
+{
+	return (m_car_weapon) ? m_car_weapon->GetFireDir() : Fvector().set(0.0f, 0.0f, 0.0f);
+}
+
 /*----------------------------------------------------------------------------------------------------
 	Inventory
 ----------------------------------------------------------------------------------------------------*/
@@ -2647,15 +2672,23 @@ void CCar::CrewObstacleCallback(bool &do_colide, bool bo1, dContact &c, SGameMtl
 	}
 }
 
-LPCSTR CCar::GetSeatByCrew(CGameObject *obj)
+LPCSTR CCar::GetSeatByCrew(CScriptGameObject *obj)
 {
-	SSeat *seat = m_crew_manager->GetSeatByCrew(obj);
+	CGameObject *who = (obj) ? &obj->object() : NULL;
+	SSeat *seat = CrewManagerAvailable() ? m_crew_manager->GetSeatByCrew(who) : NULL;
 	return (seat) ? seat->section : NULL;
 }
 
-CGameObject *CCar::GetCrewBySeat(LPCSTR sec)
+CScriptGameObject *CCar::GetCrewBySeat(LPCSTR sec)
 {
-	return m_crew_manager->GetCrewBySeat(m_crew_manager->GetSeatByName(sec));
+	CGameObject *obj = (CrewManagerAvailable()) ? m_crew_manager->GetCrewBySeat(m_crew_manager->GetSeatByName(sec)) : NULL;
+	return (obj) ? obj->lua_game_object() : NULL;
+}
+
+CScriptGameObject *CCar::GetCrewByType(u16 type)
+{
+	CGameObject *obj = (CrewManagerAvailable()) ? m_crew_manager->GetCrewByType(type) : NULL;
+	return (obj) ? obj->lua_game_object() : NULL;
 }
 
 Fvector CCar::CrewExitPosition(CGameObject *obj)
@@ -2734,7 +2767,6 @@ void CCar::CrewChangeSeat(CGameObject *obj, LPCSTR sec)
 
 void CCar::OnAttachCrew(u16 type)
 {
-	Msg("%s:%d %d", __FUNCTION__, __LINE__, type);
 	switch (type)
 	{
 	case eCarCrewDriver:
@@ -2754,7 +2786,6 @@ void CCar::OnAttachCrew(u16 type)
 
 void CCar::OnDetachCrew(u16 type)
 {
-	Msg("%s:%d %d", __FUNCTION__, __LINE__, type);
 	switch (type)
 	{
 	case eCarCrewDriver:
@@ -2781,8 +2812,21 @@ u16 CCar::GetCrewType(CGameObject *obj, LPCSTR sec)
 	return (seat) ? seat->type : eCarCrewNone;
 }
 
-bool CCar::CanActorDrive()
+bool CCar::CanActorDrive(int key)
 {
+	if (m_actor_control_callback && strlen(m_actor_control_callback))
+	{
+		luabind::functor<bool> lua_function;
+		if (ai().script_engine().functor(m_actor_control_callback, lua_function))
+		{
+			CGameObject *who = (CrewManagerAvailable()) ? m_crew_manager->GetCrewByType(eCarCrewDriver) : NULL;
+			if (lua_function(lua_game_object(), key, (who) ? who->lua_game_object() : NULL))
+			{
+				return true;
+			}
+		}
+	}
+
 	if (GetCrewType(OwnerActor(), NULL) == eCarCrewDriver)
 	{
 		return true;
@@ -2791,7 +2835,7 @@ bool CCar::CanActorDrive()
 	return false;
 }
 
-bool CCar::CanActorShoot()
+bool CCar::CanActorShoot(int key)
 {
 	if (GetCrewType(OwnerActor(), NULL) == eCarCrewGunner)
 	{
@@ -2799,4 +2843,10 @@ bool CCar::CanActorShoot()
 	}
 	return false;
 }
+
+CGameObject *CCar::Gunner()
+{
+	return (CrewManagerAvailable()) ? m_crew_manager->GetCrewByType(eCarCrewGunner) : Owner();
+}
+
 #endif

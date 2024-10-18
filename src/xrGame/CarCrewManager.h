@@ -58,6 +58,8 @@ public:
 	SSeat *GetSeatByCrew(CGameObject *crew);
 	SSeat *GetSeatByDoor(u16 bone_id);
 	CGameObject *GetCrewBySeat(SSeat *seat);
+	CGameObject *GetCrewByType(u16 type);
+
 	bool AttachCrew(CGameObject *obj, LPCSTR sec);
 	void DetachCrew(CGameObject *obj);
 	void CrewChangeSeat(CGameObject *obj, LPCSTR sec);
