@@ -476,10 +476,15 @@ protected:
 	u16 m_control_pit; /* Pitch */
 	u16 m_control_rol; /* Roll */
 
-	float m_control_ele_scale;
-	float m_control_yaw_scale;
-	float m_control_pit_scale;
-	float m_control_rol_scale;
+	float m_control_ele_max;
+	float m_control_yaw_max;
+	float m_control_pit_max;
+	float m_control_rol_max;
+
+	float m_control_ele_inc;
+	float m_control_yaw_inc;
+	float m_control_pit_inc;
+	float m_control_rol_inc;
 
 public:
 	bool GetEngineOn() { return m_engine_on; };
@@ -526,14 +531,14 @@ public:
 	void SetControlPit(u16 val) { m_control_pit = val; };
 	void SetControlRol(u16 val) { m_control_rol = val; };
 
-	float GetControlEleScale() { return m_control_ele_scale; };
-	float GetControlYawScale() { return m_control_yaw_scale; };
-	float GetControlPitScale() { return m_control_pit_scale; };
-	float GetControlRolScale() { return m_control_rol_scale; };
-	void SetControlEleScale(float val) { m_control_ele_scale = val; };
-	void SetControlYawScale(float val) { m_control_yaw_scale = val; };
-	void SetControlPitScale(float val) { m_control_pit_scale = val; };
-	void SetControlRolScale(float val) { m_control_rol_scale = val; };
+	float GetControlEleScale() { return m_control_ele_max; };
+	float GetControlYawScale() { return m_control_yaw_max; };
+	float GetControlPitScale() { return m_control_pit_max; };
+	float GetControlRolScale() { return m_control_rol_max; };
+	void SetControlEleScale(float val) { m_control_ele_max = val; };
+	void SetControlYawScale(float val) { m_control_yaw_max = val; };
+	void SetControlPitScale(float val) { m_control_pit_max = val; };
+	void SetControlRolScale(float val) { m_control_rol_max = val; };
 
 	void DroneResetControl();
 
