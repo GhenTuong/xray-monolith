@@ -10,6 +10,10 @@
 #include "game_object_space.h"
 #include "holder_custom.h"
 
+#ifdef CHOLDERCUSTOM_CHANGE
+
+#endif
+
 void CCarWeapon::BoneCallbackX(CBoneInstance* B)
 {
 	CCarWeapon* P = static_cast<CCarWeapon*>(B->callback_param());
@@ -81,16 +85,23 @@ CCarWeapon::CCarWeapon(CPhysicsShellHolder* obj)
 	m_holder = smart_cast<CHolderCustom *>(m_object);
 	R_ASSERT3(m_holder, "Parent is not a holder custom. ", m_object->cNameSect_str());
 
+	m_state_index = eCarWeaponStateIdle;
+	m_state_delay = 0;
+
 	CInifile *ini = K->LL_UserData();
 	LPCSTR mwd = "mounted_weapon_definition";
 
 	m_drop_bone = ini->line_exist(mwd, "drop_bone") ? K->LL_BoneID(ini->r_string(mwd, "drop_bone")) : BI_NONE;
+	m_ammo_bone = ini->line_exist(mwd, "ammo_bone") ? K->LL_BoneID(ini->r_string(mwd, "ammo_bone")) : BI_NONE;
 	m_recoil_force = READ_IF_EXISTS(ini, r_float, mwd, "recoil_force", 0.0F);
 	m_min_gun_speed = _abs(deg2rad(m_min_gun_speed));
 	m_max_gun_speed = _abs(deg2rad(m_max_gun_speed));
 
 	m_desire_angle_vector.set(0.0F, 0.0F);
 	m_desire_angle_active = false;
+
+	m_unlimited_ammo = !!READ_IF_EXISTS(pSettings, r_bool, m_object->cNameSect_str(), "unlimited_ammo", true);
+	m_reload_consume_inventory_callback = READ_IF_EXISTS(pSettings, r_string, m_object->cNameSect_str(), "reload_consume_inventory", NULL);
 #endif
 }
 
@@ -103,12 +114,36 @@ CCarWeapon::~CCarWeapon()
 void CCarWeapon::Load(LPCSTR section)
 {
 	inheritedShooting::Load(section);
-	HUD_SOUND_ITEM::LoadSound(section, "snd_shoot", m_sndShot, SOUND_TYPE_WEAPON_SHOOTING);
-	m_Ammo->Load(pSettings->r_string(section, "ammo_class"), 0);
-
 #ifdef CHOLDERCUSTOM_CHANGE
 	m_sounds.LoadSound(section, "snd_shoot", "sndShot", false, SOUND_TYPE_WEAPON_SHOOTING);
 	m_sounds.LoadSound(section, "snd_reload", "sndReload", true, SOUND_TYPE_WEAPON_RECHARGING);
+
+	m_rocket_enable = !!READ_IF_EXISTS(pSettings, r_bool, section, "is_rocket_launcher", false);
+	if (m_rocket_enable)
+	{
+		CRocketLauncher::Load(section);
+	}
+
+	m_ammoTypes.clear();
+	LPCSTR ammo_class = pSettings->r_string(section, "ammo_class");
+	if (ammo_class && strlen(ammo_class))
+	{
+		string128 tmp;
+		int n = _GetItemCount(ammo_class);
+		for (int i = 0; i < n; ++i)
+		{
+			_GetItem(ammo_class, i, tmp);
+			m_ammoTypes.push_back(tmp);
+		}
+	}
+	m_ammoType = 0;
+	m_DefaultCartridge.Load(m_ammoTypes[m_ammoType].c_str(), m_ammoType, 1.0F);
+
+	iMagazineSize = pSettings->r_s32(section, "ammo_mag_size");
+	SetAmmoElapsed(READ_IF_EXISTS(pSettings, r_s32, section, "ammo_elapsed", iMagazineSize));
+#else
+	HUD_SOUND_ITEM::LoadSound(section, "snd_shoot", m_sndShot, SOUND_TYPE_WEAPON_SHOOTING);
+	m_Ammo->Load(pSettings->r_string(section, "ammo_class"), 0);
 #endif
 }
 
@@ -140,11 +175,41 @@ void CCarWeapon::UpdateFire()
 			FireEnd();
 	};
 
+#ifdef CHOLDERCUSTOM_CHANGE
+	switch (m_state_index)
+	{
+	case eCarWeaponStateIdle:
+	case eCarWeaponStateFire:
+		break;
+	case eCarWeaponStateReload:
+		UpdateReload();
+		if (m_state_index == eCarWeaponStateReload)
+			return;
+		break;
+	case eCarWeaponStateUnload:
+		UpdateUnload();
+		if (m_state_index == eCarWeaponStateUnload)
+			return;
+		break;
+	default:
+		break;
+	}
+#endif
+
 	if (!IsWorking())
 	{
 		clamp(fShotTimeCounter, 0.0f, flt_max);
 		return;
 	}
+
+#ifdef CHOLDERCUSTOM_CHANGE
+	/* Out of ammo. */
+	if (!m_unlimited_ammo && (m_magazine.size() == 0))
+	{
+		SwitchState(eCarWeaponStateReload);
+		return;
+	}
+#endif
 
 	if (fShotTimeCounter <= 0)
 	{
@@ -307,19 +372,35 @@ void CCarWeapon::OnShot()
 	CGameObject *gunner = m_holder->Gunner();
 	gunner = (gunner) ? gunner : m_object->cast_game_object();
 
-	FireBullet(m_fire_pos, m_fire_dir, fireDispersionBase, *m_Ammo, gunner->ID(), m_object->ID(), SendHitAllowed(m_object), ::Random.randI(0, 30));
+	if (m_rocket_enable)
+	{
+		FireRocket(gunner);
+	}
+	else
+	{
+		CCartridge l_cartridge = (m_magazine.size() > 0) ? m_magazine.back() : m_DefaultCartridge;
+		FireBullet(m_fire_pos, m_fire_dir, fireDispersionBase, l_cartridge, gunner->ID(), m_object->ID(), SendHitAllowed(m_object), GetAmmoElapsed());
+	}
+
+	if (!m_unlimited_ammo)
+	{
+		m_magazine.pop_back();
+		--iAmmoElapsed;
+		VERIFY((u32)iAmmoElapsed == m_magazine.size());
+	}
+	UpdateRocketMagazine();
+	UpdateAmmoVisibility();
 
 	StartShotParticles();
-
 	if (m_bLightShotEnabled)
 		Light_Start();
-
 	StartFlameParticles();
 	StartSmokeParticles(m_fire_pos, zero_vel);
 	m_sounds.PlaySound("sndShot", m_fire_pos, gunner, false);
 
 	if (m_object->PPhysicsShell())
 	{
+		/* Drop casing. */
 		if (m_drop_bone != BI_NONE)
 		{
 			Fvector drop_pos;
@@ -328,12 +409,13 @@ void CCarWeapon::OnShot()
 			m_object->PPhysicsShell()->get_LinearVel(drop_vel);
 			OnShellDrop(drop_pos, drop_vel);
 		}
-
+		/* Recoil. */
 		CPhysicsElement *E = m_object->PPhysicsShell()->get_Element(m_rotate_x_bone);
 		if (E)
 		{
 			Fvector vec = Fvector().set(0.0F, 0.0F, -1.0F);
-			Fmatrix().mul_43(m_object->XFORM(), m_object->Visual()->dcast_PKinematics()->LL_GetTransform(m_rotate_x_bone)).transform_dir(vec);
+			Fmatrix xfm = Fmatrix().mul_43(m_object->XFORM(), m_object->Visual()->dcast_PKinematics()->LL_GetTransform(m_rotate_x_bone));
+			xfm.transform_dir(vec);
 			vec.normalize_safe();
 			E->applyForce(vec, m_recoil_force / 0.02F);
 		}
@@ -364,8 +446,15 @@ void CCarWeapon::Action(u16 id, u32 flags)
 	{
 	case eWpnFire:
 		{
+#ifdef CHOLDERCUSTOM_CHANGE
+			if (flags == 1)
+				SwitchState(eCarWeaponStateFire);
+			else
+				SwitchState(eCarWeaponStateIdle);
+#else
 			if (flags == 1) FireStart();
 			else FireEnd();
+#endif
 		}
 		break;
 	case eWpnActivate:
@@ -404,6 +493,18 @@ void CCarWeapon::Action(u16 id, u32 flags)
 			SetParam(eWpnDesiredDir, Fvector2().set(m_bind_y_rot, m_bind_x_rot));
 		}
 		break;
+#ifdef CHOLDERCUSTOM_CHANGE
+	case eWpnReload:
+		{
+			SwitchState(eCarWeaponStateReload);
+		}
+		break;
+	case eWpnUnload:
+		{
+			SwitchState(eCarWeaponStateUnload);
+		}
+		break;
+#endif
 	}
 }
 
@@ -454,10 +555,33 @@ const Fvector& CCarWeapon::ViewCameraNorm()
 }
 
 #ifdef CHOLDERCUSTOM_CHANGE
-void CCarWeapon::AddShotEffector()
+CActor *CCarWeapon::GunnerActor()
 {
 	CGameObject *gunner = m_holder->Gunner();
-	if (gunner && (gunner == Actor()))
+	return (gunner) ? gunner->cast_actor() : nullptr;
+}
+
+bool CCarWeapon::IsReloadConsumeInventory()
+{
+	/* Default unlimited ammo. */
+	if (m_reload_consume_inventory_callback && strlen(m_reload_consume_inventory_callback))
+	{
+		if (strcmp(m_reload_consume_inventory_callback, "true") == 0)
+		{
+			return true;
+		}
+		luabind::functor<bool> lua_function;
+		if (ai().script_engine().functor(m_reload_consume_inventory_callback, lua_function))
+		{
+			return (lua_function(m_object->lua_game_object(), m_holder->Gunner())) ? true : false;
+		}
+	}
+	return false;
+}
+
+void CCarWeapon::AddShotEffector()
+{
+	if (GunnerActor())
 	{
 		CCameraShotEffector *S = smart_cast<CCameraShotEffector *>(Actor()->Cameras().GetCamEffector(eCEShot));
 		CameraRecoil cam_recoil;
@@ -477,8 +601,7 @@ void CCarWeapon::AddShotEffector()
 
 void CCarWeapon::RemoveShotEffector()
 {
-	CGameObject *gunner = m_holder->Gunner();
-	if (gunner && (gunner == Actor()))
+	if (GunnerActor())
 	{
 		Actor()->Cameras().RemoveCamEffector(eCEShot);
 	}
@@ -489,5 +612,294 @@ Fvector CCarWeapon::GetBasePos()
 	Fvector vec;
 	m_object->XFORM().transform_tiny(vec, m_object->Visual()->dcast_PKinematics()->LL_GetTransform(m_rotate_y_bone).c);
 	return vec;
+}
+
+void CCarWeapon::OnAttachCrew()
+{
+	m_bActive = true;
+	FireEnd();
+	SwitchState(eCarWeaponStateIdle);
+}
+
+void CCarWeapon::OnDetachCrew()
+{
+	m_bActive = false;
+	FireEnd();
+	SwitchState(eCarWeaponStateIdle);
+}
+
+void CCarWeapon::SwitchState(u32 state)
+{
+	switch (state)
+	{
+	case eCarWeaponStateIdle:
+		switch2_Idle();
+		break;
+	case eCarWeaponStateFire:
+		switch2_Fire();
+		break;
+	case eCarWeaponStateReload:
+		switch2_Reload();
+		break;
+	case eCarWeaponStateUnload:
+		switch2_Unload();
+		break;
+	}
+}
+
+void CCarWeapon::switch2_Idle()
+{
+	m_state_index = eCarWeaponStateIdle;
+	m_state_delay = 0;
+	m_iShotNum = 0;
+	FireEnd();
+}
+
+void CCarWeapon::switch2_Fire()
+{
+	m_state_index = eCarWeaponStateFire;
+	m_state_delay = 0;
+	if (IsWorking() == TRUE)
+	{
+		return;
+	}
+	m_bFireSingleShot = true;
+	m_iShotNum = 0;
+	FireStart();
+}
+
+void CCarWeapon::switch2_Reload()
+{
+	if (GetAmmoElapsed() == GetAmmoMagSize())
+		return;
+	if (IsReloadConsumeInventory() && (GetAmmoCount(m_ammoType) > 0))
+		return;
+	CAI_Stalker *who = smart_cast<CAI_Stalker *>(m_holder->Gunner());
+	if (who)
+	{
+		/* Play sound or something. */
+	}
+	FireEnd();
+	m_state_index = eCarWeaponStateReload;
+	m_state_delay = 3;
+}
+
+void CCarWeapon::switch2_Unload()
+{
+	if (GetAmmoElapsed() == 0)
+	{
+		return;
+	}
+	FireEnd();
+	m_state_index = eCarWeaponStateUnload;
+	m_state_delay = 3;
+}
+
+void CCarWeapon::UpdateReload()
+{
+	m_state_delay = m_state_delay - Device.fTimeDelta;
+	if (m_state_delay < 0)
+	{
+		m_state_index = eCarWeaponStateIdle;
+		m_state_delay = 0;
+		ReloadMagazine();
+	}
+}
+
+void CCarWeapon::UpdateUnload()
+{
+	m_state_delay = m_state_delay - Device.fTimeDelta;
+	if (m_state_delay < 0)
+	{
+		m_state_index = eCarWeaponStateIdle;
+		m_state_delay = 0;
+		UnloadMagazine(true);
+	}
+}
+
+void CCarWeapon::FireRocket(CGameObject *gunner)
+{
+	if (getRocketCount() > 0)
+	{
+		CExplosiveRocket *rocket = smart_cast<CExplosiveRocket *>(getCurrentRocket());
+		VERIFY(rocket);
+		rocket->SetInitiator(gunner->ID());
+
+		Fmatrix xfm = Fmatrix().mul_43(m_object->XFORM(), m_object->Visual()->dcast_PKinematics()->LL_GetTransform(m_fire_bone));
+		Fvector dir = Fvector().set(0.0F, 0.0F, 1.0F);
+		xfm.transform_dir(dir);
+		dir.normalize_safe();
+		Fvector vel = Fvector().mul(dir, CRocketLauncher::m_fLaunchSpeed);
+
+		Fmatrix xform;
+		xform.identity();
+		xform.k.set(dir);
+		Fvector::generate_orthonormal_basis(xform.k, xform.j, xform.i);
+		xform.translate_over(xfm.c);
+
+		LaunchRocket(xform, vel, Fvector().set(0.0F, 0.0F, 0.0F));
+
+		NET_Packet P;
+		CGameObject::u_EventGen(P, GE_LAUNCH_ROCKET, m_object->ID());
+		P.w_u16(u16(getCurrentRocket()->ID()));
+		CGameObject::u_EventSend(P);
+		dropCurrentRocket();
+	}
+}
+
+void CCarWeapon::SetAmmoElapsed(int ammo_count)
+{
+	iAmmoElapsed = ammo_count;
+	clamp(iAmmoElapsed, 0, iMagazineSize);
+	u32 uAmmo = u32(iAmmoElapsed);
+	if (uAmmo != m_magazine.size())
+	{
+		if (uAmmo > m_magazine.size())
+		{
+			CCartridge l_cartridge;
+			l_cartridge.Load(m_ammoTypes[m_ammoType].c_str(), m_ammoType, false);
+			while (uAmmo > m_magazine.size())
+				m_magazine.push_back(l_cartridge);
+		}
+		else
+		{
+			while (uAmmo < m_magazine.size())
+				m_magazine.pop_back();
+		}
+	}
+	UpdateRocketMagazine();
+	UpdateAmmoVisibility();
+}
+
+void CCarWeapon::ReloadMagazine()
+{
+	UnloadMagazine(true);
+	AddCartridge(1);
+}
+
+void CCarWeapon::UnloadMagazine(bool spawn_ammo)
+{
+	xr_map<LPCSTR, u16> l_ammo;
+	while (!m_magazine.empty())
+	{
+		CCartridge &l_cartridge = m_magazine.back();
+		xr_map<LPCSTR, u16>::iterator l_it;
+		for (l_it = l_ammo.begin(); l_ammo.end() != l_it; ++l_it)
+		{
+			if (!xr_strcmp(*l_cartridge.m_ammoSect, l_it->first))
+			{
+				++(l_it->second);
+				break;
+			}
+		}
+
+		if (l_it == l_ammo.end())
+		{
+			l_ammo[*l_cartridge.m_ammoSect] = 1;
+		}
+		m_magazine.pop_back();
+		--iAmmoElapsed;
+	}
+
+	UnloadRocket();
+	UpdateRocketMagazine();
+	UpdateAmmoVisibility();
+}
+
+u16 CCarWeapon::AddCartridge(u16 cnt)
+{
+	if (iAmmoElapsed >= iMagazineSize)
+		return 0;
+	m_pCurrentAmmo = smart_cast<CWeaponAmmo *>(m_holder->GetInventory()->GetAny(m_ammoTypes[m_ammoType].c_str()));
+	if (m_DefaultCartridge.m_LocalAmmoType != m_ammoType)
+	{
+		m_DefaultCartridge.Load(m_ammoTypes[m_ammoType].c_str(), m_ammoType, 1.0F);
+	}
+	CCartridge l_cartridge = m_DefaultCartridge;
+	while (cnt)
+	{
+		if (IsReloadConsumeInventory() && !m_pCurrentAmmo->Get(l_cartridge))
+		{
+			break;
+		}
+		--cnt;
+		++iAmmoElapsed;
+		l_cartridge.m_LocalAmmoType = m_ammoType;
+		m_magazine.push_back(l_cartridge);
+	}
+	UpdateRocketMagazine();
+	UpdateAmmoVisibility();
+	return cnt;
+}
+
+int CCarWeapon::GetAmmoCount(u8 ammo_type) const
+{
+	VERIFY(m_holder->GetInventory());
+	R_ASSERT(ammo_type < m_ammoTypes.size());
+	return GetAmmoCount_forType(m_ammoTypes[ammo_type]);
+}
+
+int CCarWeapon::GetAmmoCount_forType(shared_str const &ammo_type) const
+{
+	CInventory *inv = m_holder->GetInventory();
+	int res = 0;
+	TIItemContainer::iterator itb = inv->m_all.begin();
+	TIItemContainer::iterator ite = inv->m_all.end();
+	for (; itb != ite; ++itb)
+	{
+		CWeaponAmmo *pAmmo = smart_cast<CWeaponAmmo *>(*itb);
+		if (pAmmo && (pAmmo->cNameSect() == ammo_type))
+		{
+			res += pAmmo->m_boxCurr;
+		}
+	}
+	return res;
+}
+
+void CCarWeapon::UnloadRocket()
+{
+	if (IsRocketLauncher())
+	{
+		while (getRocketCount() > 0)
+		{
+			NET_Packet P;
+			CGameObject::u_EventGen(P, GE_OWNERSHIP_REJECT, m_object->ID());
+			P.w_u16(u16(getCurrentRocket()->ID()));
+			CGameObject::u_EventSend(P);
+			dropCurrentRocket();
+		}
+	}
+}
+
+void CCarWeapon::UpdateRocketMagazine()
+{
+	if (IsRocketLauncher())
+	{
+		while (getRocketCount() != iAmmoElapsed)
+		{
+			if (getRocketCount() < iAmmoElapsed)
+			{
+				shared_str fake_grenade_name = pSettings->r_string(m_ammoTypes[m_ammoType].c_str(), "fake_grenade_name");
+				CRocketLauncher::SpawnRocket(fake_grenade_name.c_str(), m_object);
+			}
+			else
+			{
+				NET_Packet P;
+				CGameObject::u_EventGen(P, GE_OWNERSHIP_REJECT, m_object->ID());
+				P.w_u16(u16(getCurrentRocket()->ID()));
+				CGameObject::u_EventSend(P);
+				dropCurrentRocket();
+			}
+		}
+	}
+}
+
+void CCarWeapon::UpdateAmmoVisibility()
+{
+	if (m_ammo_bone != BI_NONE)
+	{
+		BOOL visible = (GetAmmoElapsed() > 0) ? TRUE : FALSE;
+		m_object->Visual()->dcast_PKinematics()->LL_SetBoneVisible(m_ammo_bone, visible, TRUE);
+	}
 }
 #endif

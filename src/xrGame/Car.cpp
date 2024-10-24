@@ -2020,6 +2020,16 @@ void CCar::OnEvent(NET_Packet& P, u16 type)
 		u16 id;
 		P.r_u16(id);
 		CObject *O = Level().Objects.net_Find(id);
+
+		if (smart_cast<CCustomRocket *>(O))
+		{
+			if (m_car_weapon)
+			{
+				m_car_weapon->AttachRocket(id, this);
+			}
+			break;
+		}
+
 		O->H_SetParent(this);
 		if (GetInventory()->CanTakeItem(smart_cast<CInventoryItem *>(O)))
 		{
@@ -2050,10 +2060,19 @@ void CCar::OnEvent(NET_Packet& P, u16 type)
 	}
 	case GE_TRADE_SELL:
 	case GE_OWNERSHIP_REJECT:
+	case GE_LAUNCH_ROCKET:
 	{
 		u16 id;
 		P.r_u16(id);
 		CObject *O = Level().Objects.net_Find(id);
+		if (smart_cast<CCustomRocket *>(O))
+		{
+			if (m_car_weapon)
+			{
+				m_car_weapon->DetachRocket(id, (type == GE_LAUNCH_ROCKET) ? true : false);
+			}
+			break;
+		}
 
 		bool just_before_destroy = !P.r_eof() && P.r_u8();
 		O->SetTmpPreDestroy(just_before_destroy);
@@ -2536,6 +2555,16 @@ Fvector CCar::ExitPosition()
 #endif
 
 #ifdef CCAR_CHANGE
+void CCar::save(NET_Packet &pkt)
+{
+	CPhysicsShellHolder::save(pkt);
+}
+
+void CCar::load(IReader &pkt)
+{
+	CPhysicsShellHolder::load(pkt);
+}
+
 bool CCar::is_ai_obstacle() const
 {
 	return true;
@@ -2774,8 +2803,10 @@ void CCar::OnAttachCrew(u16 type)
 		break;
 	case eCarCrewGunner:
 		m_zoom_status = false;
-		Action(CCarWeapon::eWpnActivate, 1);
-		Action(CCarWeapon::eWpnFire, 0);
+		if (m_car_weapon)
+		{
+			m_car_weapon->OnAttachCrew();
+		}
 		break;
 	case eCarCrewMember:
 		break;
@@ -2796,8 +2827,10 @@ void CCar::OnDetachCrew(u16 type)
 		break;
 	case eCarCrewGunner:
 		m_zoom_status = false;
-		Action(CCarWeapon::eWpnActivate, 0);
-		Action(CCarWeapon::eWpnFire, 0);
+		if (m_car_weapon)
+		{
+			m_car_weapon->OnDetachCrew();
+		}
 		break;
 	case eCarCrewMember:
 		break;

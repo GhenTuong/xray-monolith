@@ -768,6 +768,8 @@ public:
 	};
 
 public:
+	virtual void save(NET_Packet &pkt);
+	virtual void load(IReader &pkt);
 	virtual bool is_ai_obstacle() const;
 
 	void SetfMaxPower(float value);
